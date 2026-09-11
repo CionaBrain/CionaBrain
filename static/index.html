@@ -6,7 +6,7 @@
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=1" />
-    <link rel="stylesheet" href="/static/styles.css?v=17" />
+    <link rel="stylesheet" href="/static/styles.css?v=19" />
   </head>
   <body>
     <header class="masthead">
@@ -31,6 +31,22 @@
         </a>
       </div>
     </header>
+
+    <section class="world-panel world-backdrop" aria-label="Live modeled larval world background">
+      <div class="world-heading">
+        <div><span class="field-label"><span id="worldRuntimeLabel">SHARED SENSORIMOTOR LOOP</span> · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
+        <div class="world-tools" role="group" aria-label="World interaction tool">
+          <button data-world-tool="light" class="active">Move light</button>
+          <button data-world-tool="touch">Touch larva</button>
+        </div>
+      </div>
+      <canvas id="larvalWorld" height="900" aria-label="Two-dimensional larval world"></canvas>
+      <div class="world-settings">
+        <label>Light power <input id="worldLightStrength" type="range" min="0" max="100" value="38" /></label>
+        <label>Gravity direction <input id="gravityAngle" type="range" min="0" max="360" value="90" /></label>
+        <span>The live modeled world is rendered as the site background.</span>
+      </div>
+    </section>
 
     <main>
       <section class="context-bar" aria-label="Dataset summary">
@@ -156,22 +172,6 @@
               <div class="clock"><span id="simTime">0.0</span> ms</div>
             </div>
           </header>
-
-          <section class="world-panel activity-view">
-            <div class="world-heading">
-              <div><span class="field-label"><span id="worldRuntimeLabel">SHARED SENSORIMOTOR LOOP</span> · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
-              <div class="world-tools" role="group" aria-label="World interaction tool">
-                <button data-world-tool="light" class="active">Move light</button>
-                <button data-world-tool="touch">Touch larva</button>
-              </div>
-            </div>
-            <canvas id="larvalWorld" height="220" aria-label="Interactive two-dimensional larval world"></canvas>
-            <div class="world-settings">
-              <label>Light power <input id="worldLightStrength" type="range" min="0" max="100" value="38" /></label>
-              <label>Gravity direction <input id="gravityAngle" type="range" min="0" max="360" value="90" /></label>
-              <span>Click the world to move the light or apply a spatial touch.</span>
-            </div>
-          </section>
 
           <section class="connectome-panel activity-view" aria-labelledby="connectomeTitle">
             <div class="connectome-heading">
