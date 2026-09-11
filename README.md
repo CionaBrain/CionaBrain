@@ -8,6 +8,16 @@ central nervous system, lets sensory events propagate through the measured
 directed network, and turns left/right motor activity into movement in a small
 two-dimensional world.
 
+<p align="center">
+  <a href="https://doi.org/10.7554/eLife.16962.004">
+    <img src="docs/images/ryan-2016-figure-1.jpg" width="760" alt="Ciona intestinalis larva, CNS, notochord and serial-section reconstruction from Ryan et al. 2016 Figure 1">
+  </a>
+</p>
+<p align="center"><sub>
+  Larval anatomy, CNS regions and serial-section reconstruction. Ryan, Lu &amp;
+  Meinertzhagen (2016), Figure 1. <a href="https://doi.org/10.7554/eLife.16962.004">Original figure and caption</a> · CC BY 4.0.
+</sub></p>
+
 By default, everyone watches and interacts with the same server-authoritative
 larva. Its neural clock keeps advancing when a viewer disconnects. A separate
 Local lab mode creates a private browser Worker for ablation, replay and model
@@ -46,6 +56,18 @@ Ryan, Lu and Meinertzhagen reconstructed the larval CNS from serial-section
 electron microscopy. Their 2016 study identified **177 CNS neurons**, thousands
 of chemical synapses, neuromuscular junctions and putative gap junctions.
 
+<p align="center">
+  <a href="https://doi.org/10.7554/eLife.16962.024">
+    <img src="docs/images/ryan-2016-connectome-network.jpg" width="1100" alt="Complete network of synaptic pathways in the larval Ciona CNS from Ryan et al. 2016">
+  </a>
+</p>
+<p align="center"><sub>
+  Complete network of synaptic pathways in the larval CNS; arrows show
+  direction and line width indicates synaptic contact depth. Ryan, Lu &amp;
+  Meinertzhagen (2016), Figure 7—figure supplement 1.
+  <a href="https://doi.org/10.7554/eLife.16962.024">Original figure and caption</a> · CC BY 4.0.
+</sub></p>
+
 This is not a miniature bilaterally mirrored brain. Its left and right sides
 contain different neuron identities and different pathways even where total
 cell counts are similar. The brain vesicle includes a right-sided ocellus and
@@ -54,6 +76,18 @@ different activity on the two sides of the swimming system.
 
 That combination—small, chordate and visibly asymmetric—is what CionaBrain is
 designed to make explorable.
+
+<p align="center">
+  <a href="https://doi.org/10.7554/eLife.16962.042">
+    <img src="docs/images/ryan-2016-left-right-matrix.jpg" width="800" alt="Ciona larval CNS connectivity matrix sorted into left and right sides from Ryan et al. 2016">
+  </a>
+</p>
+<p align="center"><sub>
+  Connectivity matrix sorted by left and right sides—the source view behind
+  CionaBrain's laterality emphasis. Ryan, Lu &amp; Meinertzhagen (2016),
+  Figure 16—figure supplement 1.
+  <a href="https://doi.org/10.7554/eLife.16962.042">Original figure and caption</a> · CC BY 4.0.
+</sub></p>
 
 ## What you can explore
 
@@ -85,7 +119,7 @@ wrapped around it.
 | **Measured** | Neuron identities, directed contacts, cumulative presynaptic contact depth and explicit `L`/`R` labels from the Ryan et al. dataset. |
 | **Derived** | Log-scaled simulation weights, activity paths, motor grouping and the left/right laterality score. |
 | **Heuristic** | Inhibitory signs where no complete physiological sign annotation is available, stimulus-to-neuron mappings, sensory transduction and larval movement physics. |
-| **Experimental** | Random inhibitory controls, ablations and optional class-level synaptic-gain optimization. |
+| **Experimental** | Random inhibitory controls, ablations, optional class-level synaptic-gain optimization and reward-modulated plasticity. |
 
 The public Netzschleuder representation contains 205 nodes and 2,903 directed
 edges. CionaBrain removes peripheral input nodes and non-CNS tail targets to
@@ -131,6 +165,14 @@ that the complete excitatory/inhibitory physiology is known.
 
 The upstream dataset is distributed under CC BY 4.0. Please cite Ryan, Lu and
 Meinertzhagen (2016) when using or redistributing the connectome data.
+
+### Figure credits
+
+All three figures displayed above are reproduced from Ryan, Lu and
+Meinertzhagen, *eLife* 5:e16962 (2016), under the paper's
+[CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/). They were
+retrieved through eLife's official IIIF service and downscaled only for README
+display; no labels, scientific content or interpretive overlays were added.
 
 ## Run locally
 
