@@ -12,7 +12,7 @@ const broadcastHz = Math.max(1, Math.min(20, Number(process.env.BROADCAST_HZ || 
 const maxViewers = Math.max(100, Number(process.env.MAX_VIEWERS || 250));
 const maxBufferedBytes = Math.max(64 * 1024, Number(process.env.MAX_BUFFERED_BYTES || 256 * 1024));
 let slowClientDrops = 0;
-const mime: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json" };
+const mime: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml" };
 const graph = parseConnectome(readFileSync(join(process.cwd(), "data/nodes.csv"), "utf8"), readFileSync(join(process.cwd(), "data/edges.csv"), "utf8"));
 const live = new LiveCionaRuntime(graph);
 const server = createServer(async (request, response) => {
