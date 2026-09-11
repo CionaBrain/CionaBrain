@@ -5,17 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
-    <link rel="stylesheet" href="/static/styles.css?v=9" />
+    <link rel="stylesheet" href="/static/styles.css?v=10" />
   </head>
   <body>
     <header class="masthead">
       <div class="masthead-main">
         <a class="wordmark" href="/">CionaBrain</a>
-        <span class="project-label">Larval CNS simulator</span>
+        <span class="project-label">A chordate nervous system living online</span>
       </div>
-      <div class="connection" aria-live="polite">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span id="connectionText">Connecting</span>
+      <div class="masthead-runtime">
+        <nav class="runtime-switch" aria-label="Simulation runtime">
+          <button class="active" data-runtime-mode="shared">Shared live</button>
+          <button data-runtime-mode="local">Local lab</button>
+        </nav>
+        <div class="connection" aria-live="polite">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="connectionText">Joining shared Ciona</span>
+        </div>
       </div>
     </header>
 
@@ -35,6 +41,8 @@
         </div>
         <p>Real directed connectome · native left–right asymmetry · contact-depth weights</p>
       </section>
+
+      <aside id="runtimeNotice" class="runtime-notice">You are watching the same continuously running larva as every other visitor. Sensory interactions are public; destructive experiments are locked.</aside>
 
       <div class="simulator-layout">
         <aside class="control-rail">
@@ -135,7 +143,7 @@
 
           <section class="world-panel activity-view" data-tab-panel="activity-world">
             <div class="world-heading">
-              <div><span class="field-label">CLOSED SENSORIMOTOR LOOP · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
+              <div><span class="field-label"><span id="worldRuntimeLabel">SHARED SENSORIMOTOR LOOP</span> · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
               <div class="world-tools" role="group" aria-label="World interaction tool">
                 <button data-world-tool="light" class="active">Move light</button>
                 <button data-world-tool="touch">Touch larva</button>
@@ -213,12 +221,15 @@
               <div><dt>Spikes / frame</dt><dd id="firingCount">0</dd></div>
               <div><dt>Left motor pool</dt><dd id="leftMotor">0.000</dd></div>
               <div><dt>Right motor pool</dt><dd id="rightMotor">0.000</dd></div>
+              <div><dt>Connected viewers</dt><dd id="liveViewers">0</dd></div>
+              <div><dt>Current life</dt><dd id="liveAge">0s</dd></div>
             </dl>
 
             <div class="active-input">
-              <span>Active input</span>
+              <span id="autonomyStatus">Autonomous world</span>
               <strong id="activeStimuli">None</strong>
             </div>
+            <p id="liveEvent" class="live-event">Larva entered the shared world</p>
 
             <div class="group-ablation">
               <span class="field-label">MOTOR-CIRCUIT ABLATION</span>
@@ -256,7 +267,7 @@
 
           <section class="section-block export-block is-hidden" data-tab-panel="readout-experiment">
             <span class="field-label">EXPERIMENT RECORD</span>
-            <p id="recordCount">0 states recorded in this browser</p>
+            <p id="recordCount">0 states observed in this browser</p>
             <label class="seed-label" for="seedInput">Random seed <input id="seedInput" type="number" min="0" max="2147483647" value="7" /></label>
             <div class="experiment-actions"><button id="startExperiment">Start new</button><button id="replayExperiment">Replay</button></div>
             <p id="experimentStatus">No deterministic experiment is active.</p>
@@ -294,6 +305,6 @@
     </main>
 
     <div id="tooltip" class="tooltip" role="tooltip"></div>
-    <script type="module" src="/static/dist/app.js?v=10"></script>
+    <script type="module" src="/static/dist/app.js?v=11"></script>
   </body>
 </html>

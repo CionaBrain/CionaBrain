@@ -9,5 +9,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/connectome.ts", "src/simulator.ts", "src/worker.ts", "src/server.ts", "tests-ts/**/*.ts"]
+  "include": ["src/connectome.ts", "src/simulator.ts", "src/live-runtime.ts", "src/worker.ts", "src/server.ts", "tests-ts/**/*.ts"]
 }

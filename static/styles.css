@@ -48,6 +48,11 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 }
 
 .masthead-main { display: flex; align-items: baseline; gap: 15px; }
+.masthead-runtime { display: flex; align-items: center; gap: 18px; }
+.runtime-switch { display: flex; padding: 3px; border: 1px solid #4b5358; border-radius: 7px; background: #1d2226; }
+.runtime-switch button { padding: 6px 10px; border: 0; border-radius: 4px; color: #aeb5b9; background: transparent; font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; }
+.runtime-switch button:hover { color: white; }
+.runtime-switch button.active { color: #17252c; background: #dce8ec; box-shadow: 0 1px 4px rgba(0,0,0,.25); }
 .wordmark { color: white; text-decoration: none; font-size: 18px; font-weight: 700; letter-spacing: -.02em; }
 .project-label { color: #b9c0c4; font-size: 12px; }
 .connection { display: flex; align-items: center; gap: 8px; color: #c9ced1; font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
@@ -73,6 +78,7 @@ main { max-width: 1500px; margin: 0 auto; padding: 22px 28px 0; }
 .field-label { display: block; margin-bottom: 5px; color: var(--muted); font: 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .11em; }
 .context-bar strong { display: block; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .context-bar p { margin: 0; padding-left: 24px; border-left: 1px solid var(--line-dark); color: var(--muted); font-size: 11px; line-height: 1.45; }
+.runtime-notice { padding: 9px 18px; border: solid #b8cbd3; border-width: 0 1px 1px; color: #365464; background: #edf5f7; font-size: 9px; line-height: 1.45; }
 
 .simulator-layout {
   display: grid;
@@ -255,6 +261,7 @@ input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: 2px s
 .active-input { margin-top: 15px; padding: 10px; border-left: 3px solid var(--green); border-radius: 0 5px 5px 0; background: #edf4ef; }
 .active-input span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 8px; text-transform: uppercase; }
 .active-input strong { font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+.live-event { margin: 8px 0 0; color: var(--muted); font: 8px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .group-ablation { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
 .group-ablation button { width: 100%; margin-top: 7px; padding: 8px; border: 1px solid #d4d9dc; border-radius: var(--control-radius); color: var(--muted); background: white; box-shadow: var(--control-shadow); font-size: 8px; font-weight: 600; cursor: pointer; transition: transform .14s, border-color .14s, color .14s, background .14s; }
 .group-ablation button:hover { transform: translateY(-1px); }
@@ -330,6 +337,9 @@ button:disabled { opacity: .58; cursor: wait !important; transform: none !import
 
 @media (max-width: 720px) {
   .masthead { padding: 0 16px; }
+  .masthead-runtime { gap: 8px; }
+  .runtime-switch button { padding: 6px 7px; font-size: 8px; }
+  .connection { display: none; }
   .project-label { display: none; }
   main { padding: 14px 12px 0; }
   .context-bar { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

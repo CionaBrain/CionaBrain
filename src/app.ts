@@ -1,5 +1,5 @@
-// The simulation protocol is typed at the Worker boundary; DOM state remains
-// intentionally lightweight because this is a dependency-free interface.
+// Shared mode observes one server-authoritative Ciona. Local lab mode keeps the
+// original per-tab Worker for private destructive experiments.
 const groupGrids = {
   left: document.querySelector("#leftGrid"),
   right: document.querySelector("#rightGrid"),
@@ -15,6 +15,9 @@ const raster = document.querySelector("#rasterPlot");
 const worldCanvas = document.querySelector("#larvalWorld");
 
 let worker;
+let socket;
+let transportMode = "shared";
+let reconnectTimer;
 let metadata = null;
 let neurons = [];
 let dots = [];
@@ -31,12 +34,27 @@ const records = [];
 const worldTrail = [];
 
 function send(command) {
-  worker?.postMessage(command);
+  if (transportMode === "shared") {
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(command));
+  } else worker?.postMessage(command);
 }
 
-function setConnected(online) {
+function setConnected(online, label) {
   connection.classList.toggle("online", online);
-  connectionText.textContent = online ? "Local simulation" : "Worker unavailable";
+  connectionText.textContent = label || (online ? "Connected" : "Reconnecting");
+}
+
+function setControlScope() {
+  const privateOnly = ["#resetButton", "#playPauseButton", "#stepButton", "#speedSelect", "#signRuleSelect", "#originalGains", "#optimizeGains", "#startExperiment", "#replayExperiment", "#ablateButton", "[data-ablate-side]"];
+  document.querySelectorAll(privateOnly.join(",")).forEach((control) => {
+    control.disabled = transportMode === "shared";
+    control.title = transportMode === "shared" ? "Switch to Local lab to change or reset the model." : "";
+  });
+  document.querySelectorAll("[data-runtime-mode]").forEach((button) => button.classList.toggle("active", button.dataset.runtimeMode === transportMode));
+  const notice = document.querySelector("#runtimeNotice");
+  notice.textContent = transportMode === "shared"
+    ? "You are watching the same continuously running larva as every other visitor. Sensory interactions are public; destructive experiments are locked."
+    : "This private laboratory runs in your browser. Model changes, ablation, reset, recording and replay affect only this tab.";
 }
 
 function indexConnections(connections) {
@@ -159,6 +177,12 @@ function renderState(state) {
   document.querySelector("#activeStimuli").textContent = state.active_stimuli.length
     ? state.active_stimuli.map(formatStimulus).join(" + ")
     : "None";
+  const live = state.live;
+  document.querySelector("#liveViewers").textContent = live ? String(live.viewer_count) : "1";
+  document.querySelector("#liveAge").textContent = formatAge(live ? live.age_seconds : state.time_ms / 1000);
+  document.querySelector("#liveEvent").textContent = live?.last_event || "Private laboratory session";
+  document.querySelector("#worldRuntimeLabel").textContent = live ? "SHARED SENSORIMOTOR LOOP" : "PRIVATE SENSORIMOTOR LOOP";
+  document.querySelector("#autonomyStatus").textContent = live ? (live.autonomous ? "Autonomous world" : "Visitor interaction") : "Manual laboratory";
   document.querySelector("#leftGroup").classList.toggle(
     "stim-active", state.active_stimuli.includes("touch_left")
   );
@@ -172,6 +196,7 @@ function renderState(state) {
     ? "No fitted gain multipliers are active."
     : `Experimental multipliers: ${Object.entries(state.gain_parameters).map(([key, value]) => `${key} ${value.toFixed(1)}×`).join(" · ")}${state.gain_objective === null ? "" : ` · objective ${state.gain_objective.toFixed(3)}`}`;
   document.querySelector("#signRuleSelect").value = state.sign_rule;
+  updateSignRuleDescription(state.sign_rule);
   document.querySelectorAll("[data-ablate-side]").forEach((button) => {
     const side = button.dataset.ablateSide;
     const group = metadata?.motor_groups?.[side] || [];
@@ -223,10 +248,18 @@ function renderState(state) {
     if (activityHistory.length > 240) activityHistory.shift();
     if (rasterFrames.length > 120) rasterFrames.shift();
     if (records.length > 2400) records.shift();
-    document.querySelector("#recordCount").textContent = `${records.length} states recorded in this browser`;
+    document.querySelector("#recordCount").textContent = `${records.length} states observed in this browser`;
   }
   updateWorldTrail(state.world);
   drawPlots();
+}
+
+function formatAge(seconds) {
+  const value = Math.max(0, Math.floor(seconds || 0));
+  const hours = Math.floor(value / 3600);
+  const minutes = Math.floor((value % 3600) / 60);
+  const secs = value % 60;
+  return hours ? `${hours}h ${minutes}m` : minutes ? `${minutes}m ${secs}s` : `${secs}s`;
 }
 
 function updateWorldTrail(world) {
@@ -373,33 +406,65 @@ function drawWorld() {
   }
 }
 
-function connect() {
+function handleMessage(message) {
+  if (message.type === "metadata") {
+    metadata = message;
+    indexConnections(message.connections);
+    buildGrid(message.neurons);
+    updateSignRuleDescription(document.querySelector("#signRuleSelect").value);
+    populateProvenance(message.source.provenance);
+  }
+  if (message.type === "state") renderState(message);
+  if (message.type === "path") renderPath(message);
+  if (message.type === "comparison") renderComparison(message);
+  if (message.type === "gain_result") {
+    document.querySelector("#gainResult").textContent = `Calibration complete · objective ${message.objective.toFixed(3)}`;
+    const button = document.querySelector("#optimizeGains");
+    button.disabled = false;
+    button.textContent = "Calibrate experimental gains";
+  }
+  if (message.type === "error") {
+    console.warn(message.message);
+    document.querySelector("#liveEvent").textContent = message.message;
+  }
+}
+
+function connectLocal() {
   worker = new Worker("/static/dist/simulator.worker.js", { type: "module" });
-  worker.addEventListener("message", (event) => {
-    const message = event.data;
-    if (message.type === "metadata") {
-      metadata = message;
-      indexConnections(message.connections);
-      buildGrid(message.neurons);
-      updateSignRuleDescription(document.querySelector("#signRuleSelect").value);
-      populateProvenance(message.source.provenance);
-    }
-    if (message.type === "state") renderState(message);
-    if (message.type === "path") renderPath(message);
-    if (message.type === "comparison") renderComparison(message);
-    if (message.type === "gain_result") {
-      document.querySelector("#gainResult").textContent = `Calibration complete · objective ${message.objective.toFixed(3)}`;
-      const button = document.querySelector("#optimizeGains");
-      button.disabled = false;
-      button.textContent = "Calibrate experimental gains";
-    }
-    if (message.type === "error") console.warn(message.message);
-  });
+  worker.addEventListener("message", (event) => handleMessage(event.data));
   worker.addEventListener("error", (event) => {
     console.error(event.message);
-    setConnected(false);
+    setConnected(false, "Local worker unavailable");
   });
-  setConnected(true);
+  setConnected(true, "Local lab · private");
+}
+
+function connectShared() {
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+  socket = new WebSocket(`${protocol}//${location.host}/ws`);
+  setConnected(false, "Joining shared Ciona");
+  socket.addEventListener("open", () => setConnected(true, "Shared Ciona · live"));
+  socket.addEventListener("message", event => {
+    try { handleMessage(JSON.parse(event.data)); }
+    catch (error) { console.warn("Invalid live message", error); }
+  });
+  socket.addEventListener("close", () => {
+    setConnected(false, "Shared Ciona · reconnecting");
+    if (transportMode === "shared") reconnectTimer = setTimeout(connectShared, 1800);
+  });
+  socket.addEventListener("error", () => setConnected(false, "Shared Ciona unavailable"));
+}
+
+function setRuntimeMode(mode) {
+  if (mode === transportMode && (socket || worker)) return;
+  transportMode = mode;
+  clearTimeout(reconnectTimer);
+  socket?.close(); socket = null;
+  worker?.terminate(); worker = null;
+  activityHistory.length = 0; rasterFrames.length = 0; records.length = 0; worldTrail.length = 0;
+  lastRecordedTime = null;
+  setControlScope();
+  if (mode === "shared") connectShared(); else connectLocal();
 }
 
 function populateProvenance(provenance) {
@@ -459,6 +524,9 @@ document.querySelectorAll("[data-tab-group]").forEach((navigation) => {
   navigation.querySelectorAll("[data-tab-target]").forEach((button) => {
     button.addEventListener("click", () => activateTab(navigation.dataset.tabGroup, button.dataset.tabTarget));
   });
+});
+document.querySelectorAll("[data-runtime-mode]").forEach((button) => {
+  button.addEventListener("click", () => setRuntimeMode(button.dataset.runtimeMode));
 });
 document.querySelector(".provenance-panel").addEventListener("toggle", (event) => {
   event.currentTarget.querySelector(".methods-actions > i").textContent = event.currentTarget.open ? "Hide methods" : "Show methods";
@@ -600,6 +668,7 @@ document.querySelector("#exportCsv").addEventListener("click", () => {
   downloadFile("cionabrain-spikes.csv", "text/csv", rows.join("\n"));
 });
 
-connect();
+setControlScope();
+connectShared();
 window.addEventListener("resize", drawPlots);
 drawPlots();

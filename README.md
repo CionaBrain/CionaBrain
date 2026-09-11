@@ -1,12 +1,17 @@
 # CionaBrain
 
-**A tiny chordate nervous system, running in your browser.**
+**A tiny chordate nervous system, living continuously on the open web.**
 
 CionaBrain is an interactive simulation built around the published synaptic
 connectome of a larval *Ciona intestinalis*. It simulates all 177 neurons in the
 central nervous system, lets sensory events propagate through the measured
 directed network, and turns left/right motor activity into movement in a small
 two-dimensional world.
+
+By default, everyone watches and interacts with the same server-authoritative
+larva. Its neural clock keeps advancing when a viewer disconnects. A separate
+Local lab mode creates a private browser Worker for ablation, replay and model
+experiments.
 
 The interesting part is not that this animal has very few neurons. It is that
 it is a **chordate** with a compact nervous system that can be followed from
@@ -46,8 +51,10 @@ designed to make explorable.
 
 ## What you can explore
 
-- **A live 177-neuron network.** Every browser tab runs an independent Leaky
-  Integrate-and-Fire simulation in a Web Worker.
+- **One shared live organism.** A persistent server process advances the same
+  177-neuron Leaky Integrate-and-Fire state for every connected observer.
+- **An autonomous sensory world.** When visitors stop interacting, the modeled
+  light, gravity and contact fields continue changing around the larva.
 - **An embodied larva.** Light position, gravity direction and touch location
   generate sensory input; left/right motor output changes the larva's path.
 - **Neural laterality.** Neurons are grouped by left, right and unlabelled
@@ -135,5 +142,7 @@ Open <http://127.0.0.1:8765>.
 ## Implementation note
 
 The interface is written in TypeScript. Neural state lives in a Web Worker, so
-each visitor simulates locally rather than sharing a server-side brain. The
-server only delivers the static application and connectome files.
+the Local lab remains private and inexpensive. Shared live mode runs one
+authoritative `Simulator` on the Node server and broadcasts its state to all
+observers over WebSocket. Public visitors can provide sensory input, while
+reset, ablation, sign changes and replay remain isolated to Local lab mode.
