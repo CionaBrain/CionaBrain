@@ -51,9 +51,10 @@ The server also downloads the data automatically on its first start. Source URL:
 
 - All 177 neural states are updated by a vectorized LIF model with a 5 ms step.
   WebSocket state updates are sent at approximately 20 FPS.
-- The source `depth` values are not signed conductances. Version 0.1 applies a
-  `log1p` scaling and treats all connections as excitatory. The separate
-  `synaptic_signs` vector is ready for future neurotransmitter annotations.
+- The source `depth` values are not signed conductances. We apply `log1p` scaling
+  and provide three explicit sign rules: compatible all-excitatory mode, a
+  high-out-degree interneuron heuristic, and a deterministic random-20% mode.
+  The latter two are experimental assumptions, not physiological annotations.
 - Light targets the `pr*` photoreceptors in the source data.
 - Gravity currently targets `Ant1`, `Ant2`, and their eight strongest downstream
   targets in the real matrix. This is an explicit placeholder implementation.
@@ -71,7 +72,17 @@ The server also downloads the data automatically on its first start. Source URL:
 - Reversibly ablate individual neurons and observe the resulting network activity.
 - Pause, resume, single-step, or run the simulation at 0.25×–2× speed.
 - View both population activity and a six-second spike raster for all 177 neurons.
-- Export the browser's current experiment record as JSON or spike-level CSV.
+- Compare left-labelled, right-labelled, and unlabelled neurons in separate,
+  color-coded regions with stimulus-linked side highlighting.
+- Ablate or restore all explicitly side-labelled `MN*` and `MGIN*` neurons at once.
+- Switch synaptic sign rules; dynamic state resets while experiment time and
+  deliberate ablations are preserved.
+- Export the browser's current experiment record as JSON or spike-level CSV,
+  including the active sign rule and inhibitory edge count.
+
+Synaptic signs are not fully annotated in the original Ryan et al. 2016
+connectome. Inhibition is currently implemented via transparent heuristics and
+optional experimental modes.
 
 ## Local development
 

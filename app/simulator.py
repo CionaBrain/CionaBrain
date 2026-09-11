@@ -22,25 +22,50 @@ class LIFConfig:
 class CionaSimulator:
     """Vectorised LIF simulation of all 177 CNS neurons.
 
-    Ryan et al.'s edge value is contact depth, not a signed conductance. Version
-    one therefore treats every chemical edge as excitatory and rescales robustly.
-    `synaptic_signs` is deliberately separate so transmitter annotations can be
-    plugged in later without changing the integration code.
+    Ryan et al.'s edge value is contact depth, not a signed conductance. Signs are
+    therefore supplied by an explicit, switchable rule instead of being presented
+    as measured physiology.
     """
+
+    SIGN_RULES = {
+        "all_excitatory": {
+            "label": "All excitatory",
+            "description": "Compatibility mode: every observed edge is positive.",
+            "experimental": False,
+        },
+        "heuristic_inhibition": {
+            "label": "Heuristic inhibition",
+            "description": (
+                "Edges from high-out-degree named interneurons are negative. "
+                "This is a transparent heuristic, not physiological annotation."
+            ),
+            "experimental": True,
+        },
+        "random_20_inhibitory": {
+            "label": "Random 20% inhibitory",
+            "description": (
+                "A deterministic random 20% of observed edges is negative for comparison."
+            ),
+            "experimental": True,
+        },
+    }
 
     def __init__(self, connectome: Connectome, config: LIFConfig | None = None):
         self.connectome = connectome
         self.config = config or LIFConfig()
         self.rng = np.random.default_rng(7)
         self.n = connectome.size
+        names = connectome.names
 
         nonzero = connectome.adjacency[connectome.adjacency > 0]
         scale = float(np.percentile(nonzero, 95)) if nonzero.size else 1.0
         weights = np.log1p(connectome.adjacency / max(scale, 1e-6))
-        self.synaptic_signs = np.ones(self.n, dtype=np.float32)  # placeholder
-        self.weights = (
-            weights * self.synaptic_signs[np.newaxis, :] * self.config.recurrent_gain
-        ).astype(np.float32)
+        self.base_weights = (weights * self.config.recurrent_gain).astype(np.float32)
+        self.weights = self.base_weights.copy()
+        self.edge_signs = np.ones_like(self.base_weights, dtype=np.float32)
+        self.sign_rule = "all_excitatory"
+        self.inhibitory_edges = 0
+        self.heuristic_inhibitory_neurons: list[int] = []
 
         self.voltage = np.zeros(self.n, dtype=np.float32)
         self.synaptic_current = np.zeros(self.n, dtype=np.float32)
@@ -50,8 +75,8 @@ class CionaSimulator:
         self.ablated = np.zeros(self.n, dtype=bool)
         self.active_stimuli: dict[str, dict[str, float]] = {}
         self.time_ms = 0.0
+        self.set_sign_rule("all_excitatory", reset_state=False)
 
-        names = connectome.names
         antenna = np.asarray(
             [i for i, name in enumerate(names) if name in {"Ant1", "Ant2"}],
             dtype=np.int32,
@@ -105,6 +130,56 @@ class CionaSimulator:
             right, left = ranked[:midpoint], ranked[midpoint:]
         return left.astype(np.int32), right.astype(np.int32)
 
+    def set_sign_rule(self, rule: str, reset_state: bool = True) -> None:
+        """Apply an explicit sign model to the observed, positive edge depths.
+
+        Heuristic mode follows a deliberately simple and auditable rule: among
+        neurons identified as interneurons by existing name patterns, neurons in
+        the top quartile of observed out-degree are treated as inhibitory sources.
+        All of their outgoing edges become negative. This does *not* claim that
+        these cells have been physiologically identified as inhibitory.
+
+        Random mode negates exactly 20% of observed edges using a fixed seed, so
+        comparisons are reproducible across browser sessions.
+        """
+        if rule not in self.SIGN_RULES:
+            raise ValueError(f"Unknown sign rule: {rule}")
+
+        signs = np.ones_like(self.base_weights, dtype=np.float32)
+        self.heuristic_inhibitory_neurons = []
+        if rule == "heuristic_inhibition":
+            out_degree = np.count_nonzero(self.connectome.adjacency, axis=0)
+            candidates = np.asarray(
+                [
+                    i
+                    for i, name in enumerate(self.connectome.names)
+                    if self._neuron_class(name) == "interneuron" and out_degree[i] > 0
+                ],
+                dtype=np.int32,
+            )
+            if candidates.size:
+                threshold = float(np.percentile(out_degree[candidates], 75))
+                inhibitory = candidates[out_degree[candidates] >= threshold]
+                signs[:, inhibitory] = np.where(
+                    self.base_weights[:, inhibitory] > 0, -1.0, 1.0
+                )
+                self.heuristic_inhibitory_neurons = inhibitory.tolist()
+        elif rule == "random_20_inhibitory":
+            observed = np.argwhere(self.base_weights > 0)
+            count = round(len(observed) * 0.20)
+            chosen = np.random.default_rng(2016).choice(len(observed), count, replace=False)
+            inhibitory_edges = observed[chosen]
+            signs[inhibitory_edges[:, 0], inhibitory_edges[:, 1]] = -1.0
+
+        self.sign_rule = rule
+        self.edge_signs = signs
+        self.weights = self.base_weights * signs
+        self.inhibitory_edges = int(np.count_nonzero(self.weights < 0))
+        if reset_state:
+            # Switching sign models clears dynamic state but preserves elapsed
+            # experiment time and any deliberate ablations.
+            self._clear_dynamic_state(reset_time=False)
+
     def stimulate(self, kind: str, intensity: float, duration_ms: float = 650.0) -> None:
         kind = kind.lower()
         if kind not in self.stimulus_indices:
@@ -114,15 +189,19 @@ class CionaSimulator:
             "remaining_ms": float(np.clip(duration_ms, 20.0, 5000.0)),
         }
 
-    def reset(self) -> None:
+    def _clear_dynamic_state(self, reset_time: bool) -> None:
         self.voltage.fill(0)
         self.synaptic_current.fill(0)
         self.spikes.fill(False)
         self.refractory_steps.fill(0)
         self.rate_ema.fill(0)
         self.active_stimuli.clear()
+        if reset_time:
+            self.time_ms = 0.0
+
+    def reset(self) -> None:
+        self._clear_dynamic_state(reset_time=True)
         self.ablated.fill(False)
-        self.time_ms = 0.0
 
     def set_ablation(self, neuron_id: int, ablated: bool) -> None:
         if neuron_id < 0 or neuron_id >= self.n:
@@ -133,6 +212,31 @@ class CionaSimulator:
             self.synaptic_current[neuron_id] = 0.0
             self.spikes[neuron_id] = False
             self.rate_ema[neuron_id] = 0.0
+
+    def motor_related_indices(self, side: str) -> np.ndarray:
+        """Return explicitly side-labelled motor-circuit neurons.
+
+        The source data provides no separate laterality field, so this relies on
+        names ending in L/R. `MN*` motor neurons and `MGIN*` motor-ganglion
+        interneurons are considered motor-related; other sided cells are excluded.
+        """
+        suffix = {"left": "L", "right": "R"}.get(side)
+        if suffix is None:
+            raise ValueError(f"Unknown motor side: {side}")
+        return np.asarray(
+            [
+                i
+                for i, name in enumerate(self.connectome.names)
+                if name.endswith(suffix) and name.startswith(("MN", "MGIN"))
+            ],
+            dtype=np.int32,
+        )
+
+    def set_motor_group_ablation(self, side: str, ablated: bool) -> list[int]:
+        indices = self.motor_related_indices(side)
+        for neuron_id in indices:
+            self.set_ablation(int(neuron_id), ablated)
+        return indices.tolist()
 
     def step(self) -> np.ndarray:
         cfg = self.config
@@ -187,6 +291,9 @@ class CionaSimulator:
             "motor": {"left": round(left, 3), "right": round(right, 3)},
             "active_stimuli": list(self.active_stimuli),
             "ablated": np.flatnonzero(self.ablated).tolist(),
+            "sign_rule": self.sign_rule,
+            "sign_rule_label": self.SIGN_RULES[self.sign_rule]["label"],
+            "inhibitory_edges": self.inhibitory_edges,
         }
 
     def metadata(self) -> dict:
@@ -197,7 +304,7 @@ class CionaSimulator:
             elif name.endswith("R"):
                 side.append("right")
             else:
-                side.append("unassigned")
+                side.append("unlabelled")
         return {
             "type": "metadata",
             "neurons": [
@@ -223,12 +330,20 @@ class CionaSimulator:
                 }
                 for target, source in np.argwhere(self.connectome.adjacency > 0)
             ],
+            "sign_rules": self.SIGN_RULES,
+            "motor_groups": {
+                side_name: self.motor_related_indices(side_name).tolist()
+                for side_name in ("left", "right")
+            },
             "source": {
                 "dataset": "Ryan et al. 2016 / Netzschleuder cintestinalis",
                 "graph_nodes": self.connectome.full_node_count,
                 "graph_edges": self.connectome.full_edge_count,
                 "simulated_cns_neurons": self.n,
-                "synapse_assumption": "all edges excitatory (contact-depth weights)",
+                "synapse_note": (
+                    "Synaptic signs are not fully annotated in the original connectome; "
+                    "all inhibition modes are explicit assumptions."
+                ),
             },
         }
 

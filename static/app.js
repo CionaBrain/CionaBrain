@@ -1,4 +1,8 @@
-const grid = document.querySelector("#neuronGrid");
+const groupGrids = {
+  left: document.querySelector("#leftGrid"),
+  right: document.querySelector("#rightGrid"),
+  unlabelled: document.querySelector("#unlabelledGrid"),
+};
 const intensity = document.querySelector("#intensity");
 const intensityValue = document.querySelector("#intensityValue");
 const connection = document.querySelector(".connection");
@@ -45,7 +49,8 @@ function indexConnections(connections) {
 
 function buildGrid(items) {
   neurons = items;
-  grid.replaceChildren();
+  Object.values(groupGrids).forEach((group) => group.replaceChildren());
+  const counts = { left: 0, right: 0, unlabelled: 0 };
   dots = items.map((neuron) => {
     const dot = document.createElement("button");
     dot.type = "button";
@@ -56,9 +61,14 @@ function buildGrid(items) {
     dot.addEventListener("mouseenter", showTooltip);
     dot.addEventListener("mousemove", moveTooltip);
     dot.addEventListener("mouseleave", () => (tooltip.style.display = "none"));
-    grid.append(dot);
+    const side = groupGrids[neuron.side] ? neuron.side : "unlabelled";
+    counts[side] += 1;
+    groupGrids[side].append(dot);
     return dot;
   });
+  document.querySelector("#leftCount").textContent = counts.left;
+  document.querySelector("#rightCount").textContent = counts.right;
+  document.querySelector("#unlabelledCount").textContent = counts.unlabelled;
 }
 
 function selectNeuron(id) {
@@ -132,12 +142,31 @@ function renderState(state) {
   document.querySelector("#activeStimuli").textContent = state.active_stimuli.length
     ? state.active_stimuli.map(formatStimulus).join(" + ")
     : "None";
+  document.querySelector("#leftGroup").classList.toggle(
+    "stim-active", state.active_stimuli.includes("touch_left")
+  );
+  document.querySelector("#rightGroup").classList.toggle(
+    "stim-active", state.active_stimuli.includes("touch_right")
+  );
+  document.querySelector("#currentSignRule").textContent = state.sign_rule_label;
+  document.querySelector("#inhibitoryEdgeCount").textContent = state.inhibitory_edges;
+  document.querySelector("#signRuleSelect").value = state.sign_rule;
+  document.querySelectorAll("[data-ablate-side]").forEach((button) => {
+    const side = button.dataset.ablateSide;
+    const group = metadata?.motor_groups?.[side] || [];
+    const allAblated = group.length > 0 && group.every((id) => state.ablated.includes(id));
+    button.classList.toggle("active", allAblated);
+    button.textContent = `${allAblated ? "Restore" : "Ablate"} ${side} motor-related`;
+  });
 
   const score = state.direction;
   document.querySelector("#directionValue").textContent = `${score >= 0 ? "+" : ""}${score.toFixed(2)}`;
   document.querySelector("#directionMarker").style.left = `${(score + 1) * 50}%`;
   document.querySelector("#directionLabel").textContent =
     Math.abs(score) < 0.08 ? "Neutral" : score < 0 ? "Turning left" : "Turning right";
+  const motorBlock = document.querySelector(".motor-block");
+  motorBlock.classList.toggle("strong-left", score < -0.3);
+  motorBlock.classList.toggle("strong-right", score > 0.3);
 
   const playButton = document.querySelector("#playPauseButton");
   playButton.textContent = state.paused ? "Resume" : "Pause";
@@ -155,6 +184,9 @@ function renderState(state) {
       motor: state.motor,
       stimuli: state.active_stimuli,
       ablated: state.ablated,
+      sign_rule: state.sign_rule,
+      sign_rule_label: state.sign_rule_label,
+      inhibitory_edges: state.inhibitory_edges,
     });
     if (activityHistory.length > 240) activityHistory.shift();
     if (rasterFrames.length > 120) rasterFrames.shift();
@@ -234,6 +266,7 @@ function connect() {
       metadata = message;
       indexConnections(message.connections);
       buildGrid(message.neurons);
+      updateSignRuleDescription(document.querySelector("#signRuleSelect").value);
     }
     if (message.type === "state") renderState(message);
     if (message.type === "error") console.warn(message.message);
@@ -251,6 +284,11 @@ function downloadFile(filename, type, content) {
   anchor.download = filename;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function updateSignRuleDescription(rule) {
+  const description = metadata?.sign_rules?.[rule]?.description;
+  if (description) document.querySelector("#signRuleDescription").textContent = description;
 }
 
 intensity.addEventListener("input", () => {
@@ -286,6 +324,19 @@ document.querySelector("#stepButton").addEventListener("click", () => {
 document.querySelector("#speedSelect").addEventListener("change", (event) => {
   send({ type: "speed", value: Number(event.target.value) });
 });
+document.querySelector("#signRuleSelect").addEventListener("change", (event) => {
+  updateSignRuleDescription(event.target.value);
+  send({ type: "sign_rule", rule: event.target.value });
+});
+document.querySelectorAll("[data-ablate-side]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const side = button.dataset.ablateSide;
+    const group = metadata?.motor_groups?.[side] || [];
+    const ablated = new Set(latestState?.ablated || []);
+    const allAblated = group.length > 0 && group.every((id) => ablated.has(id));
+    send({ type: "ablate_motor_group", side, ablated: !allAblated });
+  });
+});
 document.querySelector("#clearSelectionButton").addEventListener("click", clearSelection);
 document.querySelector("#ablateButton").addEventListener("click", () => {
   if (selectedId === null) return;
@@ -296,9 +347,9 @@ document.querySelector("#exportJson").addEventListener("click", () => {
   downloadFile("cionabrain-experiment.json", "application/json", JSON.stringify({ metadata, records }, null, 2));
 });
 document.querySelector("#exportCsv").addEventListener("click", () => {
-  const rows = ["time_ms,neuron_id,neuron_name,direction,left_motor,right_motor,active_stimuli"];
+  const rows = ["time_ms,neuron_id,neuron_name,direction,left_motor,right_motor,active_stimuli,sign_rule,inhibitory_edges"];
   records.forEach((state) => state.spikes.forEach((id) => {
-    rows.push([state.time_ms, id, neurons[id].name, state.direction, state.motor.left, state.motor.right, state.stimuli.join("+")].join(","));
+    rows.push([state.time_ms, id, neurons[id].name, state.direction, state.motor.left, state.motor.right, state.stimuli.join("+"), state.sign_rule, state.inhibitory_edges].join(","));
   }));
   downloadFile("cionabrain-spikes.csv", "text/csv", rows.join("\n"));
 });

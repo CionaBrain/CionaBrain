@@ -26,7 +26,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="CionaBrain", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="CionaBrain", version="0.2.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -84,6 +84,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                         int(command.get("neuron_id", -1)),
                         bool(command.get("ablated", True)),
                     )
+                elif command.get("type") == "ablate_motor_group":
+                    simulator.set_motor_group_ablation(
+                        str(command.get("side", "")),
+                        bool(command.get("ablated", True)),
+                    )
+                elif command.get("type") == "sign_rule":
+                    simulator.set_sign_rule(str(command.get("rule", "")))
             except asyncio.TimeoutError:
                 pass
             except (ValueError, json.JSONDecodeError) as exc:

@@ -49,3 +49,39 @@ def test_metadata_exposes_real_connectivity():
     assert len(metadata["connections"]) == int((sim.connectome.adjacency > 0).sum())
     assert {"source", "target", "weight"} <= metadata["connections"][0].keys()
     assert all("class" in neuron for neuron in metadata["neurons"])
+
+
+def test_sign_rules_are_explicit_reproducible_and_reset_dynamics():
+    graph = load_connectome(DATA_DIR, download=False)
+    sim = CionaSimulator(graph)
+    assert sim.sign_rule == "all_excitatory"
+    assert sim.inhibitory_edges == 0
+
+    sim.step()
+    elapsed = sim.time_ms
+    sim.set_ablation(0, True)
+    sim.set_sign_rule("heuristic_inhibition")
+    assert sim.inhibitory_edges > 0
+    assert (sim.weights < 0).sum() == sim.inhibitory_edges
+    assert sim.time_ms == elapsed
+    assert sim.ablated[0]
+    assert not sim.voltage.any()
+
+    sim.set_sign_rule("random_20_inhibitory")
+    observed = int((graph.adjacency > 0).sum())
+    assert sim.inhibitory_edges == round(observed * 0.20)
+    first_signs = sim.edge_signs.copy()
+    sim.set_sign_rule("all_excitatory")
+    sim.set_sign_rule("random_20_inhibitory")
+    assert (first_signs == sim.edge_signs).all()
+
+
+def test_bulk_motor_ablation_uses_explicit_lr_names():
+    sim = CionaSimulator(load_connectome(DATA_DIR, download=False))
+    left = sim.set_motor_group_ablation("left", True)
+    assert left
+    assert all(sim.connectome.names[i].endswith("L") for i in left)
+    assert all(sim.connectome.names[i].startswith(("MN", "MGIN")) for i in left)
+    assert all(sim.ablated[i] for i in left)
+    sim.set_motor_group_ablation("left", False)
+    assert not any(sim.ablated[i] for i in left)

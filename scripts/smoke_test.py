@@ -34,6 +34,16 @@ async def check_websocket() -> dict:
             json.dumps({"type": "ablate", "neuron_id": 0, "ablated": True})
         )
         ablated = json.loads(await socket.recv())
+        await socket.send(
+            json.dumps({"type": "sign_rule", "rule": "heuristic_inhibition"})
+        )
+        signed = json.loads(await socket.recv())
+        await socket.send(
+            json.dumps(
+                {"type": "ablate_motor_group", "side": "left", "ablated": True}
+            )
+        )
+        grouped = json.loads(await socket.recv())
         return {
             "metadata_neurons": len(metadata["neurons"]),
             "connections": len(metadata["connections"]),
@@ -42,6 +52,12 @@ async def check_websocket() -> dict:
             "paused": paused["paused"],
             "single_step_ms": stepped["time_ms"] - paused["time_ms"],
             "ablated": 0 in ablated["ablated"],
+            "sign_rule": signed["sign_rule"],
+            "inhibitory_edges": signed["inhibitory_edges"],
+            "left_motor_group_ablated": all(
+                neuron_id in grouped["ablated"]
+                for neuron_id in metadata["motor_groups"]["left"]
+            ),
         }
 
 

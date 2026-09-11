@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
-    <link rel="stylesheet" href="/static/styles.css?v=3" />
+    <link rel="stylesheet" href="/static/styles.css?v=4" />
   </head>
   <body>
     <header class="masthead">
@@ -93,9 +93,17 @@
               <div><dt>Time step</dt><dd>5 ms</dd></div>
               <div><dt>Membrane τ</dt><dd>20 ms</dd></div>
               <div><dt>Synapse τ</dt><dd>12 ms</dd></div>
-              <div><dt>Connection sign</dt><dd>Excitatory*</dd></div>
+              <div><dt>Active sign rule</dt><dd id="currentSignRule">All excitatory</dd></div>
+              <div><dt>Inhibitory edges</dt><dd id="inhibitoryEdgeCount">0</dd></div>
             </dl>
-            <p class="assumption">* Sign is not annotated in the source matrix. This is a temporary model assumption.</p>
+            <label class="sign-rule-label" for="signRuleSelect">Synaptic sign model</label>
+            <select id="signRuleSelect" class="sign-rule-select">
+              <option value="all_excitatory">All excitatory</option>
+              <option value="heuristic_inhibition">Heuristic inhibition · recommended experiment</option>
+              <option value="random_20_inhibitory">Random 20% inhibitory · experimental</option>
+            </select>
+            <p class="assumption" id="signRuleDescription">Compatibility mode: every observed edge is positive.</p>
+            <p class="science-warning">Synaptic signs are not fully annotated in the original Ryan et al. 2016 connectome. Inhibition is implemented through transparent heuristics and optional experimental modes.</p>
           </section>
         </aside>
 
@@ -109,17 +117,28 @@
           </header>
 
           <div class="activity-key">
-            <span><i class="key-dot dormant"></i>inactive</span>
             <span><i class="key-dot firing"></i>spike</span>
             <span><i class="key-dot left"></i>left-labelled</span>
             <span><i class="key-dot right"></i>right-labelled</span>
+            <span><i class="key-dot unlabelled"></i>unlabelled</span>
           </div>
 
-          <div class="grid-frame">
-            <div class="axis-label anterior">ANTERIOR / SENSORY</div>
-            <div id="neuronGrid" class="neuron-grid" aria-label="Live firing grid for 177 neurons"></div>
-            <div class="axis-label posterior">MOTOR GANGLION / POSTERIOR</div>
+          <div class="laterality-groups" aria-label="Neurons grouped by left-right labels">
+            <section id="leftGroup" class="neuron-group side-group left-group">
+              <header><span>LEFT-LABELLED</span><b id="leftCount">0</b></header>
+              <div id="leftGrid" class="neuron-grid side-grid" aria-label="Left-labelled neurons"></div>
+            </section>
+            <section id="rightGroup" class="neuron-group side-group right-group">
+              <header><span>RIGHT-LABELLED</span><b id="rightCount">0</b></header>
+              <div id="rightGrid" class="neuron-grid side-grid" aria-label="Right-labelled neurons"></div>
+            </section>
+            <section id="unlabelledGroup" class="neuron-group unlabelled-group">
+              <header><span>UNLABELLED</span><b id="unlabelledCount">0</b></header>
+              <div id="unlabelledGrid" class="neuron-grid unlabelled-grid" aria-label="Neurons without a left-right label"></div>
+            </section>
           </div>
+
+          <p class="asymmetry-note">Left and right are not mirrors. Some neurons exist only on one side; connection strengths also differ. The laterality score is driven by this real asymmetry.</p>
 
           <div class="trace-block">
             <div class="trace-heading">
@@ -163,6 +182,12 @@
               <span>Active input</span>
               <strong id="activeStimuli">None</strong>
             </div>
+
+            <div class="group-ablation">
+              <span class="field-label">MOTOR-CIRCUIT ABLATION</span>
+              <button data-ablate-side="left">Ablate left motor-related</button>
+              <button data-ablate-side="right">Ablate right motor-related</button>
+            </div>
           </section>
 
           <section class="section-block note-block">
@@ -196,6 +221,6 @@
     </footer>
 
     <div id="tooltip" class="tooltip" role="tooltip"></div>
-    <script src="/static/app.js?v=3"></script>
+    <script src="/static/app.js?v=4"></script>
   </body>
 </html>
