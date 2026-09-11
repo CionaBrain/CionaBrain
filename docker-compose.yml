@@ -1,0 +1,19 @@
+services:
+  cionabrain:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cionabrain:latest
+    container_name: cionabrain
+    restart: unless-stopped
+    init: true
+    ports:
+      - "${CIONABRAIN_PORT:-8765}:8765"
+    environment:
+      NODE_ENV: production
+      PORT: 8765
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

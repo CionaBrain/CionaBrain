@@ -187,6 +187,24 @@ npm start
 
 Open <http://127.0.0.1:8765>.
 
+### Docker
+
+The repository includes a multi-stage, non-root production image with a built-in
+health check. Start it with Compose:
+
+```bash
+docker compose up -d --build
+```
+
+The simulator is then available at <http://127.0.0.1:8765>; set
+`CIONABRAIN_PORT` to publish another host port. The health endpoint is
+`/api/health`, and reverse proxies must forward WebSocket upgrades for `/ws`.
+
+```bash
+CIONABRAIN_PORT=8080 docker compose up -d --build
+docker compose ps
+```
+
 ## Implementation note
 
 The interface is written in TypeScript. Neural state lives in a Web Worker, so
