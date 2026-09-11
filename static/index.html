@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
-    <link rel="stylesheet" href="/static/styles.css?v=4" />
+    <link rel="stylesheet" href="/static/styles.css?v=9" />
   </head>
   <body>
     <header class="masthead">
@@ -33,12 +33,16 @@
           <span class="field-label">NETWORK</span>
           <strong>177 CNS neurons · 2,903 source edges</strong>
         </div>
-        <p>Directed connectome with native left–right asymmetry. Edge weight represents cumulative presynaptic contact depth.</p>
+        <p>Real directed connectome · native left–right asymmetry · contact-depth weights</p>
       </section>
 
       <div class="simulator-layout">
         <aside class="control-rail">
-          <section class="section-block">
+          <nav class="panel-tabs" data-tab-group="controls" aria-label="Control panels">
+            <button class="active" data-tab-target="controls-stimulus">Stimulus</button>
+            <button data-tab-target="controls-model">Model</button>
+          </nav>
+          <section class="section-block" data-tab-panel="controls-stimulus">
             <div class="section-title">
               <span>01</span>
               <h2>Stimulus</h2>
@@ -53,19 +57,19 @@
             <div class="stimulus-list">
               <button class="stimulus" data-stimulus="light">
                 <span class="stim-index">A</span>
-                <span><b>Light</b><small>Photoreceptor pathway</small></span>
+                <span><b>Light <em class="provenance derived">derived</em></b><small>Measured photoreceptors · modeled current</small></span>
               </button>
               <button class="stimulus" data-stimulus="gravity">
                 <span class="stim-index">B</span>
-                <span><b>Gravity</b><small>Graviceptive proxy</small></span>
+                <span><b>Gravity <em class="provenance heuristic">heuristic</em></b><small>Ant1 / Ant2 graviceptive proxy</small></span>
               </button>
               <button class="stimulus" data-stimulus="touch_left">
                 <span class="stim-index">C</span>
-                <span><b>Touch · left</b><small>Left-influencing afferent targets</small></span>
+                <span><b>Touch · left <em class="provenance heuristic">heuristic</em></b><small>Left-influencing afferent targets</small></span>
               </button>
               <button class="stimulus" data-stimulus="touch_right">
                 <span class="stim-index">D</span>
-                <span><b>Touch · right</b><small>Right-influencing afferent targets</small></span>
+                <span><b>Touch · right <em class="provenance heuristic">heuristic</em></b><small>Right-influencing afferent targets</small></span>
               </button>
             </div>
             <button id="resetButton" class="reset">Reset all states</button>
@@ -83,7 +87,7 @@
             </div>
           </section>
 
-          <section class="section-block model-block">
+          <section class="section-block model-block is-hidden" data-tab-panel="controls-model">
             <div class="section-title">
               <span>02</span>
               <h2>Model</h2>
@@ -95,6 +99,7 @@
               <div><dt>Synapse τ</dt><dd>12 ms</dd></div>
               <div><dt>Active sign rule</dt><dd id="currentSignRule">All excitatory</dd></div>
               <div><dt>Inhibitory edges</dt><dd id="inhibitoryEdgeCount">0</dd></div>
+              <div><dt>Weight profile</dt><dd id="currentGainProfile">Source-derived</dd></div>
             </dl>
             <label class="sign-rule-label" for="signRuleSelect">Synaptic sign model</label>
             <select id="signRuleSelect" class="sign-rule-select">
@@ -104,6 +109,12 @@
             </select>
             <p class="assumption" id="signRuleDescription">Compatibility mode: every observed edge is positive.</p>
             <p class="science-warning">Synaptic signs are not fully annotated in the original Ryan et al. 2016 connectome. Inhibition is implemented through transparent heuristics and optional experimental modes.</p>
+            <div class="gain-controls">
+              <span class="field-label">SYNAPTIC-GAIN MODE</span>
+              <button id="originalGains">Use source-derived weights</button>
+              <button id="optimizeGains">Calibrate experimental gains</button>
+              <p id="gainResult">No fitted gain multipliers are active.</p>
+            </div>
           </section>
         </aside>
 
@@ -113,51 +124,77 @@
               <span class="field-label">LIVE STATE</span>
               <h1>Neural activity</h1>
             </div>
-            <div class="clock"><span id="simTime">0.0</span> ms</div>
+            <div class="panel-header-actions">
+              <nav class="view-tabs" data-tab-group="activity" aria-label="Activity view">
+                <button class="active" data-tab-target="activity-world">Larval world</button>
+                <button data-tab-target="activity-connectome">Connectome</button>
+              </nav>
+              <div class="clock"><span id="simTime">0.0</span> ms</div>
+            </div>
           </header>
 
-          <div class="activity-key">
-            <span><i class="key-dot firing"></i>spike</span>
-            <span><i class="key-dot left"></i>left-labelled</span>
-            <span><i class="key-dot right"></i>right-labelled</span>
-            <span><i class="key-dot unlabelled"></i>unlabelled</span>
-          </div>
-
-          <div class="laterality-groups" aria-label="Neurons grouped by left-right labels">
-            <section id="leftGroup" class="neuron-group side-group left-group">
-              <header><span>LEFT-LABELLED</span><b id="leftCount">0</b></header>
-              <div id="leftGrid" class="neuron-grid side-grid" aria-label="Left-labelled neurons"></div>
-            </section>
-            <section id="rightGroup" class="neuron-group side-group right-group">
-              <header><span>RIGHT-LABELLED</span><b id="rightCount">0</b></header>
-              <div id="rightGrid" class="neuron-grid side-grid" aria-label="Right-labelled neurons"></div>
-            </section>
-            <section id="unlabelledGroup" class="neuron-group unlabelled-group">
-              <header><span>UNLABELLED</span><b id="unlabelledCount">0</b></header>
-              <div id="unlabelledGrid" class="neuron-grid unlabelled-grid" aria-label="Neurons without a left-right label"></div>
-            </section>
-          </div>
-
-          <p class="asymmetry-note">Left and right are not mirrors. Some neurons exist only on one side; connection strengths also differ. The laterality score is driven by this real asymmetry.</p>
-
-          <div class="trace-block">
-            <div class="trace-heading">
-              <span>Population spikes</span>
-              <span>last 12 s</span>
+          <section class="world-panel activity-view" data-tab-panel="activity-world">
+            <div class="world-heading">
+              <div><span class="field-label">CLOSED SENSORIMOTOR LOOP · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
+              <div class="world-tools" role="group" aria-label="World interaction tool">
+                <button data-world-tool="light" class="active">Move light</button>
+                <button data-world-tool="touch">Touch larva</button>
+              </div>
             </div>
-            <canvas id="activityTrace" height="72" aria-label="Recent population spike count"></canvas>
-          </div>
-          <div class="raster-block">
-            <div class="trace-heading">
-              <span>Spike raster · neuron 0–176</span>
-              <span>last 6 s</span>
+            <canvas id="larvalWorld" height="220" aria-label="Interactive two-dimensional larval world"></canvas>
+            <div class="world-settings">
+              <label>Light power <input id="worldLightStrength" type="range" min="0" max="100" value="38" /></label>
+              <label>Gravity direction <input id="gravityAngle" type="range" min="0" max="360" value="90" /></label>
+              <span>Click the world to move the light or apply a spatial touch.</span>
             </div>
-            <canvas id="rasterPlot" height="124" aria-label="Live spike raster for all neurons"></canvas>
+          </section>
+
+          <div class="activity-view is-hidden" data-tab-panel="activity-connectome">
+            <div class="activity-key">
+              <span><i class="key-dot firing"></i>spike</span>
+              <span><i class="key-dot left"></i>left-labelled</span>
+              <span><i class="key-dot right"></i>right-labelled</span>
+              <span><i class="key-dot unlabelled"></i>unlabelled</span>
+            </div>
+
+            <div class="laterality-groups" aria-label="Neurons grouped by left-right labels">
+              <section id="leftGroup" class="neuron-group side-group left-group">
+                <header><span>LEFT-LABELLED</span><b id="leftCount">0</b></header>
+                <div id="leftGrid" class="neuron-grid side-grid" aria-label="Left-labelled neurons"></div>
+              </section>
+              <section id="rightGroup" class="neuron-group side-group right-group">
+                <header><span>RIGHT-LABELLED</span><b id="rightCount">0</b></header>
+                <div id="rightGrid" class="neuron-grid side-grid" aria-label="Right-labelled neurons"></div>
+              </section>
+              <section id="unlabelledGroup" class="neuron-group unlabelled-group">
+                <header><span>UNLABELLED</span><b id="unlabelledCount">0</b></header>
+                <div id="unlabelledGrid" class="neuron-grid unlabelled-grid" aria-label="Neurons without a left-right label"></div>
+              </section>
+            </div>
+
+            <p class="asymmetry-note">Left and right are not mirrors. Some neurons exist only on one side; connection strengths also differ. The laterality score is driven by this real asymmetry.</p>
+
+            <div class="plot-grid">
+              <div class="trace-block">
+                <div class="trace-heading"><span>Population spikes</span><span>last 12 s</span></div>
+                <canvas id="activityTrace" height="72" aria-label="Recent population spike count"></canvas>
+              </div>
+              <div class="raster-block">
+                <div class="trace-heading"><span>Spike raster · 0–176</span><span>last 6 s</span></div>
+                <canvas id="rasterPlot" height="124" aria-label="Live spike raster for all neurons"></canvas>
+              </div>
+            </div>
           </div>
         </section>
 
         <aside class="readout-rail">
-          <section class="section-block motor-block">
+          <nav class="panel-tabs readout-tabs" data-tab-group="readout" aria-label="Readout panels">
+            <button class="active" data-tab-target="readout-motor">Readout</button>
+            <button data-tab-target="readout-neuron">Neuron</button>
+            <button data-tab-target="readout-experiment">Experiment</button>
+            <button data-tab-target="readout-compare">Compare</button>
+          </nav>
+          <section class="section-block motor-block" data-tab-panel="readout-motor">
             <div class="section-title">
               <span>03</span>
               <h2>Motor readout</h2>
@@ -190,7 +227,7 @@
             </div>
           </section>
 
-          <section class="section-block note-block">
+          <section class="section-block note-block is-hidden" data-tab-panel="readout-neuron">
             <span class="field-label">SELECTED NEURON</span>
             <div id="neuronEmpty" class="neuron-empty">Select a dot to inspect its real connections.</div>
             <div id="neuronDetail" class="neuron-detail" hidden>
@@ -202,25 +239,61 @@
                 <div><dt>Outgoing</dt><dd id="detailOutgoing">0</dd></div>
               </dl>
               <button id="ablateButton" class="ablate">Ablate neuron</button>
+              <div class="path-controls">
+                <label for="pathStimulus">Trace sensory path</label>
+                <select id="pathStimulus">
+                  <option value="light">Light</option>
+                  <option value="gravity">Gravity</option>
+                  <option value="touch_left">Touch left</option>
+                  <option value="touch_right">Touch right</option>
+                </select>
+                <button id="tracePathButton">Find strongest path</button>
+                <div id="pathResult" class="path-result">Select a motor neuron, then trace its input route.</div>
+              </div>
               <button id="clearSelectionButton" class="text-button">Clear selection</button>
             </div>
           </section>
 
-          <section class="section-block export-block">
+          <section class="section-block export-block is-hidden" data-tab-panel="readout-experiment">
             <span class="field-label">EXPERIMENT RECORD</span>
             <p id="recordCount">0 states recorded in this browser</p>
+            <label class="seed-label" for="seedInput">Random seed <input id="seedInput" type="number" min="0" max="2147483647" value="7" /></label>
+            <div class="experiment-actions"><button id="startExperiment">Start new</button><button id="replayExperiment">Replay</button></div>
+            <p id="experimentStatus">No deterministic experiment is active.</p>
             <div><button id="exportJson">Export JSON</button><button id="exportCsv">Export CSV</button></div>
+          </section>
+
+          <section class="section-block comparison-block is-hidden" data-tab-panel="readout-compare">
+            <span class="field-label">BASELINE VS INTERVENTION</span>
+            <select id="comparisonStimulus">
+              <option value="touch_left">Touch left</option>
+              <option value="touch_right">Touch right</option>
+              <option value="light">Light</option>
+              <option value="gravity">Gravity</option>
+            </select>
+            <button id="runComparison">Run matched trial</button>
+            <div id="comparisonResult" class="comparison-result">Uses the same seed and input for both runs.</div>
           </section>
         </aside>
       </div>
+
+      <details class="provenance-panel">
+        <summary>
+          <span><span class="field-label">SCIENTIFIC PROVENANCE</span><b>What is measured, derived, or assumed?</b></span>
+          <span class="methods-actions">
+            <a href="https://doi.org/10.7554/eLife.16962" target="_blank" rel="noreferrer">Ryan et al. · <i>eLife</i> 2016 <b>↗</b></a>
+            <i>Show methods</i>
+          </span>
+        </summary>
+        <div>
+          <article><em class="provenance measured">Ryan et al. 2016</em><h3>Measured</h3><ul id="measuredList"></ul></article>
+          <article><em class="provenance derived">computed</em><h3>Derived</h3><ul id="derivedList"></ul></article>
+          <article><em class="provenance heuristic">model assumption</em><h3>Heuristic</h3><ul id="heuristicList"></ul></article>
+        </div>
+      </details>
     </main>
 
-    <footer>
-      <p><b>Source</b> Ryan K, Lu Z, Meinertzhagen IA. <i>The CNS connectome of a tadpole larva of Ciona intestinalis (L.) highlights sidedness in the brain of a chordate sibling.</i> eLife 5:e16962 (2016).</p>
-      <a href="https://doi.org/10.7554/eLife.16962" target="_blank" rel="noreferrer">DOI 10.7554/eLife.16962 ↗</a>
-    </footer>
-
     <div id="tooltip" class="tooltip" role="tooltip"></div>
-    <script src="/static/app.js?v=4"></script>
+    <script type="module" src="/static/dist/app.js?v=10"></script>
   </body>
 </html>

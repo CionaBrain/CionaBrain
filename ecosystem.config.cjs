@@ -3,9 +3,9 @@ module.exports = {
     {
       name: "cionabrain",
       cwd: "/root/CionaBrain",
-      script: "/root/CionaBrain/.venv/bin/uvicorn",
-      args: "app.main:app --host 0.0.0.0 --port 8765",
-      interpreter: "none",
+      script: "/root/CionaBrain/dist/server.js",
+      interpreter: "/usr/bin/node",
+      env: { PORT: "8765", NODE_ENV: "production" },
       autorestart: true,
       max_restarts: 10,
       time: true,

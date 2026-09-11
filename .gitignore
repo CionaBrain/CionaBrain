@@ -3,4 +3,5 @@ __pycache__/
 .venv/
 .pytest_cache/
 data/cintestinalis.csv.zip
-
+node_modules/
+dist-tests/

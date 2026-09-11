@@ -1,0 +1,16 @@
+{
+  "name": "cionabrain",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "tsc --noEmit && node scripts/build-tests.mjs && node dist-tests/core.test.js",
+    "start": "node dist/server.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  }
+}
