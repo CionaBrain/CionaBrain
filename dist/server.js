@@ -101,6 +101,8 @@ var Simulator = class {
     this.targets = { light, gravity: [.../* @__PURE__ */ new Set([...antenna, ...antennaTargets])], touch_left: touchLeft, touch_right: touchRight, touch: connectome.touchTargets };
     this.lightLeft = light.filter((_, i) => i % 2 === 0);
     this.lightRight = light.filter((_, i) => i % 2 === 1);
+    const motorTargets = /* @__PURE__ */ new Set([...this.motorGroups.left, ...this.motorGroups.right]);
+    this.plasticEdges = connectome.edges.filter((edge) => motorTargets.has(edge.target) && ["photoreceptor", "sensory neuron", "interneuron", "CNS neuron"].includes(connectome.neurons[edge.source].class)).map((edge) => edge.target * this.n + edge.source);
     this.rebuildWeights();
   }
   connectome;
@@ -122,6 +124,14 @@ var Simulator = class {
   gainProfile = "original";
   gainParameters = { sensory: 1, interneuron: 1, motor: 1, other: 1 };
   gainObjective = null;
+  learningEnabled = false;
+  plasticFactors = new Float32Array(177 * 177).fill(1);
+  eligibility = new Float32Array(177 * 177);
+  plasticEdges = [];
+  learningReward = 0;
+  learningUpdates = 0;
+  learnedEdgeCount = 0;
+  learningMeanChange = 0;
   timeMs = 0;
   active = /* @__PURE__ */ new Map();
   leftMotor;
@@ -165,6 +175,7 @@ var Simulator = class {
   reset() {
     this.resetDynamic(true);
     this.ablated.fill(0);
+    this.clearLearning();
   }
   stimulate(kind, intensity, duration = 650) {
     if (!this.targets[kind]) throw new Error(`Unknown stimulus: ${kind}`);
@@ -194,6 +205,20 @@ var Simulator = class {
   }
   setMotorAblation(side, value) {
     for (const id of this.motorGroups[side]) this.setAblation(id, value);
+  }
+  setLearning(enabled) {
+    this.learningEnabled = enabled;
+    this.eligibility.fill(0);
+    this.learningReward = 0;
+  }
+  clearLearning() {
+    this.plasticFactors.fill(1);
+    this.eligibility.fill(0);
+    this.learningReward = 0;
+    this.learningUpdates = 0;
+    this.learnedEdgeCount = 0;
+    this.learningMeanChange = 0;
+    this.rebuildWeights();
   }
   setSignRule(rule) {
     if (!SIGN_RULES[rule]) throw new Error(`Unknown sign rule: ${rule}`);
@@ -261,11 +286,13 @@ var Simulator = class {
     this.inhibitoryEdges = 0;
     for (let target = 0; target < this.n; target++) for (let source = 0; source < this.n; source++) {
       const i = target * this.n + source;
-      this.weights[i] = this.baseWeights[i] * this.signs[i] * this.gainParameters[this.gainClass(source)];
+      this.weights[i] = this.baseWeights[i] * this.signs[i] * this.gainParameters[this.gainClass(source)] * this.plasticFactors[i];
       if (this.weights[i] < 0) this.inhibitoryEdges++;
     }
   }
   step() {
+    const distanceBefore = Math.hypot(this.world.light_x - this.world.x, this.world.light_y - this.world.y);
+    const previousSpikes = this.spikes;
     const recurrent = new Float32Array(this.n);
     for (let source = 0; source < this.n; source++) if (this.spikes[source]) for (const edge of this.connectome.outgoing[source]) recurrent[edge.target] += this.weights[edge.target * this.n + source];
     const external = new Float32Array(this.n);
@@ -292,6 +319,10 @@ var Simulator = class {
     }
     this.spikes = next;
     this.advanceWorld();
+    if (this.learningEnabled) {
+      const distanceAfter = Math.hypot(this.world.light_x - this.world.x, this.world.light_y - this.world.y);
+      this.applyLearning(distanceBefore, distanceAfter, previousSpikes, next);
+    }
     this.timeMs += this.dt;
   }
   worldInput(out) {
@@ -313,13 +344,33 @@ var Simulator = class {
     this.world.y = (this.world.y + Math.sin(this.world.heading) * speed * dt + 1) % 1;
     if (this.world.touch_remaining_ms > 0 && (this.world.touch_remaining_ms -= this.dt) <= 0) Object.assign(this.world, { touch_x: null, touch_y: null, touch_side: null });
   }
+  applyLearning(distanceBefore, distanceAfter, previous, next) {
+    const instantaneous = clamp((distanceBefore - distanceAfter) * 700, -1, 1);
+    this.learningReward = 0.96 * this.learningReward + 0.04 * instantaneous;
+    let changed = 0, totalChange = 0;
+    for (const index of this.plasticEdges) {
+      const source = index % this.n, target = Math.floor(index / this.n);
+      const coactivity = previous[source] ? next[target] ? 1 : 0.12 : 0;
+      const eligibility = this.eligibility[index] = 0.985 * this.eligibility[index] + coactivity;
+      if (eligibility > 1e-3 && Math.abs(this.learningReward) > 1e-4) {
+        this.plasticFactors[index] = clamp(this.plasticFactors[index] + 15e-4 * this.learningReward * eligibility, 0.7, 1.3);
+        this.weights[index] = this.baseWeights[index] * this.signs[index] * this.gainParameters[this.gainClass(source)] * this.plasticFactors[index];
+      }
+      const delta = Math.abs(this.plasticFactors[index] - 1);
+      if (delta > 1e-3) changed++;
+      totalChange += delta;
+    }
+    this.learningUpdates++;
+    this.learnedEdgeCount = changed;
+    this.learningMeanChange = totalChange / Math.max(1, this.plasticEdges.length);
+  }
   snapshot() {
     const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), direction = clamp((right - left) / (right + left + 0.02), -1, 1);
     const spikeIds = [...this.spikes.keys()].filter((i) => this.spikes[i]);
-    return { type: "state", time_ms: this.timeMs, spikes: spikeIds, firing_count: spikeIds.length, direction: +direction.toFixed(3), motor: { left: +left.toFixed(3), right: +right.toFixed(3) }, active_stimuli: [...this.active.keys()], ablated: [...this.ablated.keys()].filter((i) => this.ablated[i]), sign_rule: this.signRule, sign_rule_label: SIGN_RULES[this.signRule].label, inhibitory_edges: this.inhibitoryEdges, seed: this.seed, gain_profile: this.gainProfile, gain_profile_label: GAIN_PROFILES[this.gainProfile].label, gain_parameters: this.gainParameters, gain_objective: this.gainObjective, world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(5) : v])) };
+    return { type: "state", time_ms: this.timeMs, spikes: spikeIds, firing_count: spikeIds.length, direction: +direction.toFixed(3), motor: { left: +left.toFixed(3), right: +right.toFixed(3) }, active_stimuli: [...this.active.keys()], ablated: [...this.ablated.keys()].filter((i) => this.ablated[i]), sign_rule: this.signRule, sign_rule_label: SIGN_RULES[this.signRule].label, inhibitory_edges: this.inhibitoryEdges, seed: this.seed, gain_profile: this.gainProfile, gain_profile_label: GAIN_PROFILES[this.gainProfile].label, gain_parameters: this.gainParameters, gain_objective: this.gainObjective, learning: { enabled: this.learningEnabled, rule: "reward_modulated_eligibility", task: "Modeled light-approach proxy", plastic_edges: this.plasticEdges.length, modified_edges: this.learnedEdgeCount, mean_abs_change: +this.learningMeanChange.toFixed(5), reward: +this.learningReward.toFixed(5), updates: this.learningUpdates, assumption: "Experimental rule; topology is measured, plasticity and reward are modeled." }, world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(5) : v])) };
   }
   metadata() {
-    return { type: "metadata", neurons: this.connectome.neurons, stimulus_targets: Object.fromEntries(Object.entries(this.targets).map(([k, ids]) => [k, ids.map((id) => this.connectome.neurons[id].name)])), connections: this.connectome.edges, sign_rules: SIGN_RULES, gain_profiles: GAIN_PROFILES, motor_groups: this.motorGroups, source: { dataset: "Ryan et al. 2016 / Netzschleuder cintestinalis", graph_nodes: this.connectome.fullNodes, graph_edges: this.connectome.fullEdges, simulated_cns_neurons: 177, synapse_note: "Synaptic signs are not fully annotated in the original connectome; all inhibition modes are explicit assumptions.", provenance: { measured: ["Neuron identities and directed edges", "Cumulative presynaptic contact depth", "Explicit L/R suffixes in source labels"], derived: ["Log-scaled LIF connection magnitudes", "Motor-pool laterality score", "Two-hop touch target partition"], heuristic: ["Synaptic signs", "World-to-sensory transduction", "Retinal left/right proxy banks", "Larval movement physics and calibrated gains"] } } };
+    return { type: "metadata", neurons: this.connectome.neurons, stimulus_targets: Object.fromEntries(Object.entries(this.targets).map(([k, ids]) => [k, ids.map((id) => this.connectome.neurons[id].name)])), connections: this.connectome.edges, sign_rules: SIGN_RULES, gain_profiles: GAIN_PROFILES, motor_groups: this.motorGroups, source: { dataset: "Ryan et al. 2016 / Netzschleuder cintestinalis", graph_nodes: this.connectome.fullNodes, graph_edges: this.connectome.fullEdges, simulated_cns_neurons: 177, synapse_note: "Synaptic signs are not fully annotated in the original connectome; all inhibition and learning modes are explicit assumptions.", provenance: { measured: ["Neuron identities and directed edges", "Cumulative presynaptic contact depth", "Explicit L/R suffixes in source labels"], derived: ["Log-scaled LIF connection magnitudes", "Motor-pool laterality score", "Two-hop touch target partition"], heuristic: ["Synaptic signs", "World-to-sensory transduction", "Retinal left/right proxy banks", "Larval movement physics and reward-modulated plasticity"] } } };
   }
   tracePath(target, stimulus2) {
     const sources = new Set(this.targets[stimulus2]), queue = [...sources].map((id) => [id]);
@@ -344,6 +395,7 @@ function runComparison(current, stimulus2, intensity) {
       sim.setSignRule(current.signRule);
       sim.gainParameters = { ...current.gainParameters };
       sim.gainProfile = current.gainProfile;
+      sim.plasticFactors.set(current.plasticFactors);
       sim.rebuildWeights();
       current.ablated.forEach((v, i) => {
         if (v) sim.setAblation(i, true);
@@ -364,7 +416,7 @@ function runComparison(current, stimulus2, intensity) {
     return { laterality: +mean(values).toFixed(4), left_motor: +mean(left).toFixed(4), right_motor: +mean(right).toFixed(4) };
   };
   const baseline = trial(false), intervention = trial(true);
-  return { type: "comparison", stimulus: stimulus2, baseline, intervention, delta: +(intervention.laterality - baseline.laterality).toFixed(4), baseline_config: "All excitatory \xB7 source-derived gains \xB7 no ablations", intervention_config: `${SIGN_RULES[current.signRule].label} \xB7 ${GAIN_PROFILES[current.gainProfile].label} \xB7 ${current.ablated.reduce((a, b) => a + b, 0)} ablated` };
+  return { type: "comparison", stimulus: stimulus2, baseline, intervention, delta: +(intervention.laterality - baseline.laterality).toFixed(4), baseline_config: "All excitatory \xB7 source-derived gains \xB7 original weights \xB7 no ablations", intervention_config: `${SIGN_RULES[current.signRule].label} \xB7 ${GAIN_PROFILES[current.gainProfile].label} \xB7 ${current.learnedEdgeCount} learned edges \xB7 ${current.ablated.reduce((a, b) => a + b, 0)} ablated` };
 }
 
 // src/live-runtime.ts
@@ -393,6 +445,7 @@ var LiveCionaRuntime = class {
   constructor(connectome, seed = 2016) {
     this.simulator = new Simulator(connectome, seed);
     this.simulator.setSignRule("heuristic_inhibition");
+    this.simulator.setLearning(true);
   }
   metadata() {
     return {

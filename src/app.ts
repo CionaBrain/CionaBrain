@@ -45,7 +45,7 @@ function setConnected(online, label) {
 }
 
 function setControlScope() {
-  const privateOnly = ["#resetButton", "#playPauseButton", "#stepButton", "#speedSelect", "#signRuleSelect", "#originalGains", "#optimizeGains", "#startExperiment", "#replayExperiment", "#ablateButton", "[data-ablate-side]"];
+  const privateOnly = ["#resetButton", "#playPauseButton", "#stepButton", "#speedSelect", "#signRuleSelect", "#originalGains", "#optimizeGains", "#learningToggle", "#clearLearning", "#startExperiment", "#replayExperiment", "#ablateButton", "[data-ablate-side]"];
   document.querySelectorAll(privateOnly.join(",")).forEach((control) => {
     control.disabled = transportMode === "shared";
     control.title = transportMode === "shared" ? "Switch to Local lab to change or reset the model." : "";
@@ -197,6 +197,14 @@ function renderState(state) {
     : `Experimental multipliers: ${Object.entries(state.gain_parameters).map(([key, value]) => `${key} ${value.toFixed(1)}×`).join(" · ")}${state.gain_objective === null ? "" : ` · objective ${state.gain_objective.toFixed(3)}`}`;
   document.querySelector("#signRuleSelect").value = state.sign_rule;
   updateSignRuleDescription(state.sign_rule);
+  const learning = state.learning || {};
+  const learningToggle = document.querySelector("#learningToggle");
+  learningToggle.classList.toggle("active", Boolean(learning.enabled));
+  learningToggle.setAttribute("aria-checked", String(Boolean(learning.enabled)));
+  learningToggle.querySelector("span").textContent = learning.enabled ? "Learning" : "Off";
+  document.querySelector("#learningReward").textContent = Number(learning.reward || 0).toFixed(4);
+  document.querySelector("#learningEdges").textContent = `${learning.modified_edges || 0} / ${learning.plastic_edges || 0}`;
+  document.querySelector("#learningChange").textContent = Number(learning.mean_abs_change || 0).toFixed(4);
   document.querySelectorAll("[data-ablate-side]").forEach((button) => {
     const side = button.dataset.ablateSide;
     const group = metadata?.motor_groups?.[side] || [];
@@ -243,6 +251,7 @@ function renderState(state) {
       seed: state.seed,
       gain_profile: state.gain_profile,
       gain_parameters: state.gain_parameters,
+      learning: state.learning,
       world: state.world,
     });
     if (activityHistory.length > 240) activityHistory.shift();
@@ -335,12 +344,12 @@ function drawWorld() {
   const { context, width, height } = prepareCanvas(worldCanvas);
   const world = latestState?.world;
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#e8eef0";
+  context.fillStyle = "#edf4f6";
   context.fillRect(0, 0, width, height);
-  context.strokeStyle = "rgba(31, 59, 68, .08)";
+  context.strokeStyle = "rgba(31, 59, 68, .035)";
   context.lineWidth = 1;
-  for (let x = 0; x < width; x += 32) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke(); }
-  for (let y = 0; y < height; y += 32) { context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke(); }
+  for (let x = 0; x < width; x += 48) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke(); }
+  for (let y = 0; y < height; y += 48) { context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke(); }
   if (!world) return;
 
   const lx = world.light_x * width;
@@ -571,6 +580,12 @@ document.querySelector("#signRuleSelect").addEventListener("change", (event) => 
   updateSignRuleDescription(event.target.value);
   send({ type: "sign_rule", rule: event.target.value });
 });
+document.querySelector("#learningToggle").addEventListener("click", () => {
+  send({ type: "learning", enabled: !latestState?.learning?.enabled });
+});
+document.querySelector("#clearLearning").addEventListener("click", () => {
+  send({ type: "learning_reset" });
+});
 document.querySelectorAll("[data-ablate-side]").forEach((button) => {
   button.addEventListener("click", () => {
     const side = button.dataset.ablateSide;
@@ -647,7 +662,7 @@ document.querySelector("#runComparison").addEventListener("click", () => {
 document.querySelector("#exportJson").addEventListener("click", () => {
   downloadFile("cionabrain-experiment.json", "application/json", JSON.stringify({
     schema_version: 2,
-    scientific_notice: "Connectome topology and contact depth are measured; signs, sensory transduction, movement and fitted gains include explicit model assumptions.",
+    scientific_notice: "Connectome topology and contact depth are measured; signs, sensory transduction, movement, fitted gains, reward and plasticity include explicit model assumptions.",
     metadata,
     experiment: latestState?.experiment,
     active_configuration: latestState ? {
@@ -655,15 +670,16 @@ document.querySelector("#exportJson").addEventListener("click", () => {
       sign_rule: latestState.sign_rule,
       gain_profile: latestState.gain_profile,
       gain_parameters: latestState.gain_parameters,
+      learning: latestState.learning,
       ablated: latestState.ablated,
     } : null,
     records,
   }, null, 2));
 });
 document.querySelector("#exportCsv").addEventListener("click", () => {
-  const rows = ["time_ms,neuron_id,neuron_name,direction,left_motor,right_motor,world_x,world_y,heading,active_stimuli,sign_rule,gain_profile,seed,inhibitory_edges"];
+  const rows = ["time_ms,neuron_id,neuron_name,direction,left_motor,right_motor,world_x,world_y,heading,active_stimuli,sign_rule,gain_profile,learning_enabled,learned_edges,learning_reward,seed,inhibitory_edges"];
   records.forEach((state) => state.spikes.forEach((id) => {
-    rows.push([state.time_ms, id, neurons[id].name, state.direction, state.motor.left, state.motor.right, state.world.x, state.world.y, state.world.heading, state.stimuli.join("+"), state.sign_rule, state.gain_profile, state.seed, state.inhibitory_edges].join(","));
+    rows.push([state.time_ms, id, neurons[id].name, state.direction, state.motor.left, state.motor.right, state.world.x, state.world.y, state.world.heading, state.stimuli.join("+"), state.sign_rule, state.gain_profile, state.learning?.enabled || false, state.learning?.modified_edges || 0, state.learning?.reward || 0, state.seed, state.inhibitory_edges].join(","));
   }));
   downloadFile("cionabrain-spikes.csv", "text/csv", rows.join("\n"));
 });

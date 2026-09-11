@@ -21,6 +21,8 @@ function apply(command: Command): boolean {
     case "ablate_motor_group": simulator.setMotorAblation(command.side, Boolean(command.ablated)); break;
     case "sign_rule": simulator.setSignRule(command.rule as SignRule); break;
     case "gain_profile": simulator.setGainProfile(command.profile as GainProfile); break;
+    case "learning": simulator.setLearning(Boolean(command.enabled)); break;
+    case "learning_reset": simulator.clearLearning(); break;
     default: return false;
   }
   return true;
@@ -37,8 +39,8 @@ scope.onmessage = ({ data: command }: MessageEvent<Command>) => {
       case "reset": simulator.reset(); events = []; setup = null; replay = []; break;
       case "playback": if (command.action === "pause") running = false; else if (command.action === "resume") running = true; else if (command.action === "step") { running = false; simulator.step(); } break;
       case "speed": speed = Number(command.value); break;
-      case "experiment_start": simulator.setSeed(Number(command.seed)); events = []; replay = []; setup = { seed: simulator.seed, sign_rule: simulator.signRule, gain_profile: simulator.gainProfile, gain_parameters: { ...simulator.gainParameters }, ablated: [...simulator.ablated.keys()].filter(i => simulator.ablated[i]), world: { light_x: simulator.world.light_x, light_y: simulator.world.light_y, light_strength: simulator.world.light_strength, gravity_angle: simulator.world.gravity_angle } }; running = true; break;
-      case "experiment_replay": if (!setup) throw new Error("Start an experiment before replaying it"); simulator.reset(); simulator.setSeed(setup.seed); simulator.setSignRule(setup.sign_rule); simulator.gainParameters = { ...setup.gain_parameters }; simulator.gainProfile = setup.gain_profile; simulator.rebuildWeights(); for (const id of setup.ablated) simulator.setAblation(id, true); simulator.setWorld(setup.world); replay = events.map(event => ({ ...event })); replayUntil = Math.max(0, ...replay.map(e => e.at_ms)) + 900; running = true; break;
+      case "experiment_start": simulator.setSeed(Number(command.seed)); events = []; replay = []; setup = { seed: simulator.seed, sign_rule: simulator.signRule, gain_profile: simulator.gainProfile, gain_parameters: { ...simulator.gainParameters }, learning_enabled: simulator.learningEnabled, ablated: [...simulator.ablated.keys()].filter(i => simulator.ablated[i]), world: { light_x: simulator.world.light_x, light_y: simulator.world.light_y, light_strength: simulator.world.light_strength, gravity_angle: simulator.world.gravity_angle } }; running = true; break;
+      case "experiment_replay": if (!setup) throw new Error("Start an experiment before replaying it"); simulator.reset(); simulator.setSeed(setup.seed); simulator.setSignRule(setup.sign_rule); simulator.gainParameters = { ...setup.gain_parameters }; simulator.gainProfile = setup.gain_profile; simulator.setLearning(Boolean(setup.learning_enabled)); simulator.rebuildWeights(); for (const id of setup.ablated) simulator.setAblation(id, true); simulator.setWorld(setup.world); replay = events.map(event => ({ ...event })); replayUntil = Math.max(0, ...replay.map(e => e.at_ms)) + 900; running = true; break;
       case "trace_path": scope.postMessage(simulator.tracePath(Number(command.neuron_id), command.stimulus)); break;
       case "run_comparison": scope.postMessage(runComparison(simulator, command.stimulus, Number(command.intensity))); break;
       case "optimize_gains": scope.postMessage({ type: "gain_result", ...simulator.optimizeGains() }); break;

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
-    <link rel="stylesheet" href="/static/styles.css?v=10" />
+    <link rel="stylesheet" href="/static/styles.css?v=11" />
   </head>
   <body>
     <header class="masthead">
@@ -122,6 +122,19 @@
               <button id="originalGains">Use source-derived weights</button>
               <button id="optimizeGains">Calibrate experimental gains</button>
               <p id="gainResult">No fitted gain multipliers are active.</p>
+            </div>
+            <div class="learning-controls">
+              <div class="learning-heading">
+                <span><span class="field-label">EXPERIMENTAL ADAPTATION</span><b>Reward-modulated plasticity</b></span>
+                <button id="learningToggle" class="learning-toggle" role="switch" aria-checked="false"><i></i><span>Off</span></button>
+              </div>
+              <p>Eligibility traces adapt observed inputs to MGIN and motor neurons. The reward is improved distance to the modeled light—not a Ryan et al. annotation or a claim about natural Ciona goals.</p>
+              <dl class="learning-stats">
+                <div><dt>Reward signal</dt><dd id="learningReward">0.0000</dd></div>
+                <div><dt>Changed edges</dt><dd id="learningEdges">0</dd></div>
+                <div><dt>Mean change</dt><dd id="learningChange">0.0000</dd></div>
+              </dl>
+              <button id="clearLearning" class="clear-learning">Clear learned weights</button>
             </div>
           </section>
         </aside>
@@ -305,6 +318,6 @@
     </main>
 
     <div id="tooltip" class="tooltip" role="tooltip"></div>
-    <script type="module" src="/static/dist/app.js?v=11"></script>
+    <script type="module" src="/static/dist/app.js?v=12"></script>
   </body>
 </html>

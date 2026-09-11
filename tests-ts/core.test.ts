@@ -37,11 +37,28 @@ test("signs, ablation, and comparison remain available", () => {
   assert.equal(typeof result.delta, "number");
 });
 
+test("plasticity stays separate from source weights and can be cleared", () => {
+  const sim = new Simulator(graph);
+  const edge = sim.plasticEdges[0];
+  assert.ok(Number.isInteger(edge));
+  const sourceWeight = sim.baseWeights[edge];
+  sim.setLearning(true);
+  sim.plasticFactors[edge] = 1.2;
+  sim.rebuildWeights();
+  assert.equal((sim.snapshot() as any).learning.enabled, true);
+  assert.notEqual(sim.weights[edge], sourceWeight);
+  assert.equal(sim.baseWeights[edge], sourceWeight);
+  sim.clearLearning();
+  assert.equal(sim.plasticFactors[edge], 1);
+  assert.equal((sim.snapshot() as any).learning.modified_edges, 0);
+});
+
 test("shared runtime persists one authoritative organism", () => {
   const live = new LiveCionaRuntime(graph, 99);
   const initial = live.state() as any;
   assert.equal(initial.live.mode, "shared_live");
   assert.equal(initial.sign_rule, "heuristic_inhibition");
+  assert.equal(initial.learning.enabled, true);
   live.tick(20);
   const later = live.state() as any;
   assert.ok(later.time_ms > initial.time_ms);

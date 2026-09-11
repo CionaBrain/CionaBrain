@@ -13,6 +13,12 @@ larva. Its neural clock keeps advancing when a viewer disconnects. A separate
 Local lab mode creates a private browser Worker for ablation, replay and model
 experiments.
 
+The shared generation also runs an explicitly experimental reward-modulated
+plasticity rule on observed sensory/interneuron inputs to MGIN and motor neurons.
+It rewards reduced distance to the modeled light. This adaptation changes only
+bounded gain factors (0.7–1.3×), never the Ryan connectome topology, and must not
+be interpreted as a measured learning rule or natural behavioral objective.
+
 The interesting part is not that this animal has very few neurons. It is that
 it is a **chordate** with a compact nervous system that can be followed from
 sensation to action almost cell by cell.

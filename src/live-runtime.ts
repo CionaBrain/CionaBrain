@@ -42,6 +42,9 @@ export class LiveCionaRuntime {
     // The shared organism uses the documented heuristic mode. The UI and state
     // continue to identify this as a modelling assumption, not measured signs.
     this.simulator.setSignRule("heuristic_inhibition");
+    // The shared Ciona learns continuously inside one server generation. This
+    // is an explicit experimental layer; Ryan edge topology remains unchanged.
+    this.simulator.setLearning(true);
   }
 
   metadata(): Record<string, unknown> {
