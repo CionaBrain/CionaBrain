@@ -250,7 +250,9 @@ function renderState(state) {
   });
 
   const score = state.direction;
-  document.querySelector("#directionValue").textContent = `${score >= 0 ? "+" : ""}${score.toFixed(2)}`;
+  // Three decimals keep weak, smoothed turns visible; two decimals made real
+  // values such as +0.002 look indistinguishable from an exact zero.
+  document.querySelector("#directionValue").textContent = `${score >= 0 ? "+" : ""}${score.toFixed(3)}`;
   document.querySelector("#directionMarker").style.left = `${(score + 1) * 50}%`;
   document.querySelector("#directionLabel").textContent = Math.abs(score) < 0.08
     ? (state.movement.speed > 0.001 ? "Swimming straight" : "Stationary")
