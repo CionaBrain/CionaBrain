@@ -476,6 +476,7 @@ function drawConnectome() {
 function drawWorld() {
   const { context, width, height } = prepareCanvas(worldCanvas);
   const world = latestState?.world;
+  const ambient = worldCanvas.closest(".world-backdrop") !== null;
   context.clearRect(0, 0, width, height);
   context.fillStyle = "#edf4f6";
   context.fillRect(0, 0, width, height);
@@ -487,7 +488,8 @@ function drawWorld() {
 
   const lx = world.light_x * width;
   const ly = world.light_y * height;
-  const gradient = context.createRadialGradient(lx, ly, 2, lx, ly, 75 + 80 * world.light_strength);
+  const gradientRadius = (75 + 80 * world.light_strength) * (ambient ? 1.65 : 1);
+  const gradient = context.createRadialGradient(lx, ly, 2, lx, ly, gradientRadius);
   gradient.addColorStop(0, `rgba(248, 197, 70, ${0.8 * world.light_strength})`);
   gradient.addColorStop(1, "rgba(248, 197, 70, 0)");
   context.fillStyle = gradient;
@@ -516,7 +518,7 @@ function drawWorld() {
 
   const x = world.x * width, y = world.y * height;
   const swimPhase = Math.sin((latestState.time_ms || 0) / 75) * 4;
-  context.save(); context.translate(x, y); context.rotate(world.heading);
+  context.save(); context.translate(x, y); context.rotate(world.heading); if (ambient) context.scale(2.05, 2.05);
   // Tadpole-like Ciona silhouette: bulbous trunk plus a long muscular tail.
   context.fillStyle = "rgba(224, 220, 184, .9)"; context.strokeStyle = "#213a42"; context.lineWidth = 1.3;
   context.beginPath();
