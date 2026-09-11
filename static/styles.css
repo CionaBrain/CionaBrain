@@ -233,13 +233,38 @@ input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: 2px s
 .right-group.stim-active { border-color: var(--right); background: #fff7ed; box-shadow: inset 0 0 0 1px var(--right), 0 0 18px rgba(249,115,22,.2); transition-duration: .1s; }
 .asymmetry-note { margin: 0 0 13px; padding: 10px 12px; display: flex; align-items: center; gap: 9px; border: 1px solid #dce9ed; color: #46515a; background: #f2f7f9; font-size: 9px; line-height: 1.45; }
 .asymmetry-note::before { content: "i"; width: 19px; height: 19px; flex: 0 0 19px; display: grid; place-items: center; border-radius: 50%; color: var(--blue); background: white; box-shadow: 0 1px 4px rgba(18,101,138,.12); font: 700 10px/1 ui-monospace, monospace; }
-.plot-grid { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(260px, 1.3fr); gap: 11px; }
+.plot-grid { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(260px, 1.3fr); gap: 14px; }
 
-.trace-block { border-top: 1px solid var(--line); padding-top: 10px; }
-.trace-heading { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--muted); font: 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
-#activityTrace { display: block; width: 100%; height: 72px; background: #f7f8f7; }
-.raster-block { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 0; }
-#rasterPlot { display: block; width: 100%; height: 124px; background: #20252a; }
+.trace-block, .raster-block {
+  min-width: 0; overflow: hidden; border: 1px solid #d9e4e8; border-radius: 14px;
+  background: #fbfdfe; box-shadow: 0 5px 16px rgba(20,57,71,.045);
+}
+.trace-heading {
+  min-height: 68px; margin: 0; padding: 9px 12px; display: flex; align-items: flex-start; flex-direction: column; justify-content: center; gap: 8px;
+  border-bottom: 1px solid #e1e9ec; color: #526772; background: rgba(255,255,255,.94);
+}
+.plot-title { width: 100%; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.plot-title > span {
+  min-width: 0; display: inline-flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 700 9px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .075em; text-transform: uppercase;
+}
+.plot-title > span::before {
+  content: ""; width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%;
+  background: #27769a; box-shadow: 0 0 0 4px rgba(39,118,154,.1);
+}
+.raster-block .plot-title > span::before { background: #df715f; box-shadow: 0 0 0 4px rgba(223,113,95,.11); }
+.plot-title > small { display: block; margin: 0; color: #89979e; font-size: 8px; line-height: 1; white-space: nowrap; }
+.plot-values { width: 100%; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.plot-values > span { min-width: 27px; display: grid; gap: 3px; text-align: right; }
+.plot-values b { color: #173746; font: 700 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.plot-values small { color: #8a989f; font: 600 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .06em; text-transform: uppercase; }
+.plot-values em {
+  flex: 0 0 auto; padding: 5px 7px; border: 1px solid #dde7ea; border-radius: 999px;
+  color: #70818a; background: #f5f8f9; font: 650 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .045em; text-transform: uppercase; font-style: normal;
+}
+#activityTrace { display: block; width: 100%; height: 132px; background: linear-gradient(180deg, #fbfdfd, #f6fafb); }
+#rasterPlot { display: block; width: 100%; height: 132px; background: #20272c; }
 
 .motor-block { min-height: 506px; }
 .score-caption { margin-top: 36px; color: var(--muted); font: 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
@@ -545,4 +570,6 @@ button:disabled { cursor: not-allowed !important; }
 @media (max-width: 620px) {
   .project-label, .connection { display: none; }
   .masthead-runtime { gap: 8px; }
+  .trace-heading { align-items: flex-start; flex-direction: column; }
+  .plot-values { width: 100%; justify-content: flex-end; }
 }

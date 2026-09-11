@@ -552,7 +552,7 @@ var broadcastHz = Math.max(1, Math.min(20, Number(process.env.BROADCAST_HZ || 8)
 var maxViewers = Math.max(100, Number(process.env.MAX_VIEWERS || 250));
 var maxBufferedBytes = Math.max(64 * 1024, Number(process.env.MAX_BUFFERED_BYTES || 256 * 1024));
 var slowClientDrops = 0;
-var mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json" };
+var mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml" };
 var graph = parseConnectome(readFileSync(join(process.cwd(), "data/nodes.csv"), "utf8"), readFileSync(join(process.cwd(), "data/edges.csv"), "utf8"));
 var live = new LiveCionaRuntime(graph);
 var server = createServer(async (request, response) => {

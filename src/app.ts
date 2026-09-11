@@ -29,7 +29,9 @@ let pathNodeIds = new Set();
 let incoming = new Map();
 let outgoing = new Map();
 const activityHistory = [];
+const activityTimes = [];
 const rasterFrames = [];
+const rasterTimes = [];
 const records = [];
 const worldTrail = [];
 
@@ -237,7 +239,9 @@ function renderState(state) {
   if (state.time_ms !== lastRecordedTime) {
     lastRecordedTime = state.time_ms;
     activityHistory.push(state.firing_count);
+    activityTimes.push(state.time_ms);
     rasterFrames.push(state.spikes);
+    rasterTimes.push(state.time_ms);
     records.push({
       time_ms: state.time_ms,
       spikes: state.spikes,
@@ -254,11 +258,21 @@ function renderState(state) {
       learning: state.learning,
       world: state.world,
     });
-    if (activityHistory.length > 240) activityHistory.shift();
-    if (rasterFrames.length > 120) rasterFrames.shift();
+    while (activityTimes.length > 1 && activityTimes[0] < state.time_ms - 12000) {
+      activityTimes.shift(); activityHistory.shift();
+    }
+    while (rasterTimes.length > 1 && rasterTimes[0] < state.time_ms - 6000) {
+      rasterTimes.shift(); rasterFrames.shift();
+    }
     if (records.length > 2400) records.shift();
     document.querySelector("#recordCount").textContent = `${records.length} states observed in this browser`;
   }
+  const traceAverage = activityHistory.length ? activityHistory.reduce((sum, value) => sum + value, 0) / activityHistory.length : 0;
+  document.querySelector("#traceCurrent").textContent = String(state.firing_count);
+  document.querySelector("#traceAverage").textContent = traceAverage.toFixed(1);
+  document.querySelector("#tracePeak").textContent = String(Math.max(0, ...activityHistory));
+  document.querySelector("#rasterActive").textContent = String(state.spikes.length);
+  document.querySelector("#rasterSeen").textContent = String(new Set(rasterFrames.flat()).size);
   updateWorldTrail(state.world);
   drawPlots();
 }
@@ -300,38 +314,65 @@ function prepareCanvas(canvas) {
 function drawTrace() {
   const { context, width, height } = prepareCanvas(trace);
   context.clearRect(0, 0, width, height);
-  context.strokeStyle = "#e0e3e2";
+  const left = 29, right = width - 8, top = 8, bottom = height - 18;
+  const ceiling = Math.max(12, ...activityHistory);
+  context.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.textAlign = "right";
+  context.textBaseline = "middle";
+  context.fillStyle = "#8a989f";
+  context.strokeStyle = "#e1e9eb";
   context.lineWidth = 1;
-  for (let row = 1; row < 4; row += 1) {
-    const y = Math.round((height * row) / 4) + 0.5;
-    context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
+  for (let row = 0; row < 3; row += 1) {
+    const ratio = row / 2;
+    const y = Math.round(top + ratio * (bottom - top)) + 0.5;
+    context.beginPath(); context.moveTo(left, y); context.lineTo(right, y); context.stroke();
+    context.fillText(String(Math.round(ceiling * (1 - ratio))), left - 5, y);
   }
   if (activityHistory.length < 2) return;
-  const ceiling = Math.max(12, ...activityHistory);
-  context.strokeStyle = "#184f73";
-  context.lineWidth = 1.25;
+  const latest = activityTimes.at(-1) || 0;
+  const windowStart = latest - 12000;
+  const points = activityHistory.map((value, index) => ({
+    x: left + Math.max(0, (activityTimes[index] - windowStart) / 12000) * (right - left),
+    y: bottom - (value / ceiling) * (bottom - top),
+  }));
+  const fill = context.createLinearGradient(0, top, 0, bottom);
+  fill.addColorStop(0, "rgba(39,118,154,.2)");
+  fill.addColorStop(1, "rgba(39,118,154,.015)");
   context.beginPath();
-  activityHistory.forEach((value, index) => {
-    const x = width - ((activityHistory.length - 1 - index) / 239) * width;
-    const y = height - 5 - (value / ceiling) * (height - 10);
-    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
-  });
+  points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
+  context.lineTo(points.at(-1).x, bottom); context.lineTo(points[0].x, bottom); context.closePath(); context.fillStyle = fill; context.fill();
+  context.strokeStyle = "#17658a"; context.lineWidth = 1.5; context.beginPath();
+  points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
   context.stroke();
+  context.fillStyle = "#8a989f"; context.textBaseline = "alphabetic"; context.textAlign = "left"; context.fillText("−12 s", left, height - 5);
+  context.textAlign = "right"; context.fillText("now", right, height - 5);
 }
 
 function drawRaster() {
   const { context, width, height } = prepareCanvas(raster);
-  context.fillStyle = "#20252a";
+  context.fillStyle = "#20272c";
   context.fillRect(0, 0, width, height);
-  context.fillStyle = "#e0715f";
-  const columnWidth = width / 120;
+  const left = 28, right = width - 8, top = 7, bottom = height - 18;
+  context.strokeStyle = "rgba(221,231,234,.1)"; context.lineWidth = 1;
+  context.fillStyle = "#87959c"; context.font = "8px ui-monospace, SFMono-Regular, Menlo, monospace"; context.textAlign = "right"; context.textBaseline = "middle";
+  [0, 88, 176].forEach((id) => {
+    const y = top + (id / 176) * (bottom - top);
+    context.beginPath(); context.moveTo(left, y); context.lineTo(right, y); context.stroke(); context.fillText(String(id), left - 5, y);
+  });
+  const latest = rasterTimes.at(-1) || 0;
+  const windowStart = latest - 6000;
+  const columnWidth = Math.max(1, (right - left) / Math.max(48, rasterFrames.length));
   rasterFrames.forEach((spikes, frameIndex) => {
-    const x = width - (rasterFrames.length - frameIndex) * columnWidth;
+    const x = left + Math.max(0, (rasterTimes[frameIndex] - windowStart) / 6000) * (right - left);
     spikes.forEach((neuronId) => {
-      const y = 2 + (neuronId / 176) * (height - 4);
-      context.fillRect(x, y, Math.max(1, columnWidth), 1.25);
+      const side = neurons[neuronId]?.side;
+      context.fillStyle = side === "left" ? "#69a2ff" : side === "right" ? "#ff8a4c" : "#d5dce0";
+      const y = top + (neuronId / 176) * (bottom - top);
+      context.fillRect(x, y, columnWidth, 1.2);
     });
   });
+  context.fillStyle = "#87959c"; context.textBaseline = "alphabetic"; context.textAlign = "left"; context.fillText("−6 s", left, height - 5);
+  context.textAlign = "right"; context.fillText("now", right, height - 5);
 }
 
 function drawPlots() {
@@ -470,7 +511,7 @@ function setRuntimeMode(mode) {
   clearTimeout(reconnectTimer);
   socket?.close(); socket = null;
   worker?.terminate(); worker = null;
-  activityHistory.length = 0; rasterFrames.length = 0; records.length = 0; worldTrail.length = 0;
+  activityHistory.length = 0; activityTimes.length = 0; rasterFrames.length = 0; rasterTimes.length = 0; records.length = 0; worldTrail.length = 0;
   lastRecordedTime = null;
   setControlScope();
   if (mode === "shared") connectShared(); else connectLocal();
@@ -561,7 +602,9 @@ document.querySelectorAll(".stimulus").forEach((button) => {
 document.querySelector("#resetButton").addEventListener("click", () => {
   send({ type: "reset" });
   activityHistory.length = 0;
+  activityTimes.length = 0;
   rasterFrames.length = 0;
+  rasterTimes.length = 0;
   records.length = 0;
   worldTrail.length = 0;
   pathNodeIds.clear();
@@ -639,12 +682,12 @@ document.querySelector("#optimizeGains").addEventListener("click", () => {
   send({ type: "optimize_gains" });
 });
 document.querySelector("#startExperiment").addEventListener("click", () => {
-  activityHistory.length = 0; rasterFrames.length = 0; records.length = 0; worldTrail.length = 0;
+  activityHistory.length = 0; activityTimes.length = 0; rasterFrames.length = 0; rasterTimes.length = 0; records.length = 0; worldTrail.length = 0;
   lastRecordedTime = null;
   send({ type: "experiment_start", seed: Number(document.querySelector("#seedInput").value) });
 });
 document.querySelector("#replayExperiment").addEventListener("click", () => {
-  activityHistory.length = 0; rasterFrames.length = 0; records.length = 0; worldTrail.length = 0;
+  activityHistory.length = 0; activityTimes.length = 0; rasterFrames.length = 0; rasterTimes.length = 0; records.length = 0; worldTrail.length = 0;
   lastRecordedTime = null;
   send({ type: "experiment_replay" });
 });

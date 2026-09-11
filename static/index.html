@@ -6,7 +6,7 @@
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=1" />
-    <link rel="stylesheet" href="/static/styles.css?v=14" />
+    <link rel="stylesheet" href="/static/styles.css?v=16" />
   </head>
   <body>
     <header class="masthead">
@@ -204,12 +204,27 @@
 
             <div class="plot-grid">
               <div class="trace-block">
-                <div class="trace-heading"><span>Population spikes</span><span>last 12 s</span></div>
-                <canvas id="activityTrace" height="72" aria-label="Recent population spike count"></canvas>
+                <div class="trace-heading">
+                  <div class="plot-title"><span>Population activity</span><small>spikes per frame</small></div>
+                  <div class="plot-values">
+                    <span><b id="traceCurrent">0</b><small>now</small></span>
+                    <span><b id="traceAverage">0.0</b><small>avg</small></span>
+                    <span><b id="tracePeak">0</b><small>peak</small></span>
+                    <em>12 s</em>
+                  </div>
+                </div>
+                <canvas id="activityTrace" height="132" aria-label="Recent population spike count"></canvas>
               </div>
               <div class="raster-block">
-                <div class="trace-heading"><span>Spike raster · 0–176</span><span>last 6 s</span></div>
-                <canvas id="rasterPlot" height="124" aria-label="Live spike raster for all neurons"></canvas>
+                <div class="trace-heading">
+                  <div class="plot-title"><span>Spike raster</span><small>neuron IDs 0–176</small></div>
+                  <div class="plot-values">
+                    <span><b id="rasterActive">0</b><small>active</small></span>
+                    <span><b id="rasterSeen">0</b><small>seen</small></span>
+                    <em>6 s</em>
+                  </div>
+                </div>
+                <canvas id="rasterPlot" height="132" aria-label="Live spike raster for all neurons"></canvas>
               </div>
             </div>
           </section>
