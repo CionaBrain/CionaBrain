@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
+    <title>CionaBrain — Larval CNS simulator</title>
+    <link rel="stylesheet" href="/static/styles.css?v=3" />
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="masthead-main">
+        <a class="wordmark" href="/">CionaBrain</a>
+        <span class="project-label">Larval CNS simulator</span>
+      </div>
+      <div class="connection" aria-live="polite">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="connectionText">Connecting</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="context-bar" aria-label="Dataset summary">
+        <div>
+          <span class="field-label">ORGANISM</span>
+          <strong><i>Ciona intestinalis</i> larva</strong>
+        </div>
+        <div>
+          <span class="field-label">DATASET</span>
+          <strong>Ryan et al., 2016</strong>
+        </div>
+        <div>
+          <span class="field-label">NETWORK</span>
+          <strong>177 CNS neurons · 2,903 source edges</strong>
+        </div>
+        <p>Directed connectome with native left–right asymmetry. Edge weight represents cumulative presynaptic contact depth.</p>
+      </section>
+
+      <div class="simulator-layout">
+        <aside class="control-rail">
+          <section class="section-block">
+            <div class="section-title">
+              <span>01</span>
+              <h2>Stimulus</h2>
+            </div>
+
+            <label class="range-label" for="intensity">
+              <span>Input intensity</span>
+              <output id="intensityValue">70%</output>
+            </label>
+            <input id="intensity" type="range" min="0" max="100" value="70" />
+
+            <div class="stimulus-list">
+              <button class="stimulus" data-stimulus="light">
+                <span class="stim-index">A</span>
+                <span><b>Light</b><small>Photoreceptor pathway</small></span>
+              </button>
+              <button class="stimulus" data-stimulus="gravity">
+                <span class="stim-index">B</span>
+                <span><b>Gravity</b><small>Graviceptive proxy</small></span>
+              </button>
+              <button class="stimulus" data-stimulus="touch_left">
+                <span class="stim-index">C</span>
+                <span><b>Touch · left</b><small>Left-influencing afferent targets</small></span>
+              </button>
+              <button class="stimulus" data-stimulus="touch_right">
+                <span class="stim-index">D</span>
+                <span><b>Touch · right</b><small>Right-influencing afferent targets</small></span>
+              </button>
+            </div>
+            <button id="resetButton" class="reset">Reset all states</button>
+
+            <div class="playback" aria-label="Simulation playback controls">
+              <button id="playPauseButton" title="Pause simulation">Pause</button>
+              <button id="stepButton" title="Advance one 5 ms time step">Step</button>
+              <label for="speedSelect">Speed</label>
+              <select id="speedSelect">
+                <option value="0.25">0.25×</option>
+                <option value="0.5">0.5×</option>
+                <option value="1" selected>1×</option>
+                <option value="2">2×</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="section-block model-block">
+            <div class="section-title">
+              <span>02</span>
+              <h2>Model</h2>
+            </div>
+            <dl class="parameters">
+              <div><dt>Integrator</dt><dd>LIF</dd></div>
+              <div><dt>Time step</dt><dd>5 ms</dd></div>
+              <div><dt>Membrane τ</dt><dd>20 ms</dd></div>
+              <div><dt>Synapse τ</dt><dd>12 ms</dd></div>
+              <div><dt>Connection sign</dt><dd>Excitatory*</dd></div>
+            </dl>
+            <p class="assumption">* Sign is not annotated in the source matrix. This is a temporary model assumption.</p>
+          </section>
+        </aside>
+
+        <section class="activity-panel">
+          <header class="panel-header">
+            <div>
+              <span class="field-label">LIVE STATE</span>
+              <h1>Neural activity</h1>
+            </div>
+            <div class="clock"><span id="simTime">0.0</span> ms</div>
+          </header>
+
+          <div class="activity-key">
+            <span><i class="key-dot dormant"></i>inactive</span>
+            <span><i class="key-dot firing"></i>spike</span>
+            <span><i class="key-dot left"></i>left-labelled</span>
+            <span><i class="key-dot right"></i>right-labelled</span>
+          </div>
+
+          <div class="grid-frame">
+            <div class="axis-label anterior">ANTERIOR / SENSORY</div>
+            <div id="neuronGrid" class="neuron-grid" aria-label="Live firing grid for 177 neurons"></div>
+            <div class="axis-label posterior">MOTOR GANGLION / POSTERIOR</div>
+          </div>
+
+          <div class="trace-block">
+            <div class="trace-heading">
+              <span>Population spikes</span>
+              <span>last 12 s</span>
+            </div>
+            <canvas id="activityTrace" height="72" aria-label="Recent population spike count"></canvas>
+          </div>
+          <div class="raster-block">
+            <div class="trace-heading">
+              <span>Spike raster · neuron 0–176</span>
+              <span>last 6 s</span>
+            </div>
+            <canvas id="rasterPlot" height="124" aria-label="Live spike raster for all neurons"></canvas>
+          </div>
+        </section>
+
+        <aside class="readout-rail">
+          <section class="section-block motor-block">
+            <div class="section-title">
+              <span>03</span>
+              <h2>Motor readout</h2>
+            </div>
+
+            <div class="score-caption">LATERALITY SCORE</div>
+            <div class="direction-value" id="directionValue">0.00</div>
+            <div class="direction-label" id="directionLabel">Neutral</div>
+
+            <div class="direction-scale" aria-label="Left to right direction scale">
+              <div class="scale-line"><i id="directionMarker"></i></div>
+              <div><span>−1 LEFT</span><span>0</span><span>RIGHT +1</span></div>
+            </div>
+
+            <dl class="readouts">
+              <div><dt>Spikes / frame</dt><dd id="firingCount">0</dd></div>
+              <div><dt>Left motor pool</dt><dd id="leftMotor">0.000</dd></div>
+              <div><dt>Right motor pool</dt><dd id="rightMotor">0.000</dd></div>
+            </dl>
+
+            <div class="active-input">
+              <span>Active input</span>
+              <strong id="activeStimuli">None</strong>
+            </div>
+          </section>
+
+          <section class="section-block note-block">
+            <span class="field-label">SELECTED NEURON</span>
+            <div id="neuronEmpty" class="neuron-empty">Select a dot to inspect its real connections.</div>
+            <div id="neuronDetail" class="neuron-detail" hidden>
+              <div class="detail-name"><strong id="detailName">—</strong><span id="detailId">—</span></div>
+              <dl class="parameters">
+                <div><dt>Class</dt><dd id="detailClass">—</dd></div>
+                <div><dt>Side</dt><dd id="detailSide">—</dd></div>
+                <div><dt>Incoming</dt><dd id="detailIncoming">0</dd></div>
+                <div><dt>Outgoing</dt><dd id="detailOutgoing">0</dd></div>
+              </dl>
+              <button id="ablateButton" class="ablate">Ablate neuron</button>
+              <button id="clearSelectionButton" class="text-button">Clear selection</button>
+            </div>
+          </section>
+
+          <section class="section-block export-block">
+            <span class="field-label">EXPERIMENT RECORD</span>
+            <p id="recordCount">0 states recorded in this browser</p>
+            <div><button id="exportJson">Export JSON</button><button id="exportCsv">Export CSV</button></div>
+          </section>
+        </aside>
+      </div>
+    </main>
+
+    <footer>
+      <p><b>Source</b> Ryan K, Lu Z, Meinertzhagen IA. <i>The CNS connectome of a tadpole larva of Ciona intestinalis (L.) highlights sidedness in the brain of a chordate sibling.</i> eLife 5:e16962 (2016).</p>
+      <a href="https://doi.org/10.7554/eLife.16962" target="_blank" rel="noreferrer">DOI 10.7554/eLife.16962 ↗</a>
+    </footer>
+
+    <div id="tooltip" class="tooltip" role="tooltip"></div>
+    <script src="/static/app.js?v=3"></script>
+  </body>
+</html>
