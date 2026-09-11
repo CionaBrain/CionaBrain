@@ -6,7 +6,7 @@
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=1" />
-    <link rel="stylesheet" href="/static/styles.css?v=17" />
+    <link rel="stylesheet" href="/static/styles.css?v=18" />
   </head>
   <body>
     <header class="masthead">
@@ -16,8 +16,8 @@
       </div>
       <div class="masthead-runtime">
         <nav class="runtime-switch" aria-label="Simulation runtime">
-          <button class="active" data-runtime-mode="shared">Shared live</button>
-          <button data-runtime-mode="local">Local lab</button>
+          <button class="active" data-runtime-mode="shared" data-help="One server-authoritative larva is shared by every visitor. Sensory interactions are public; destructive controls are locked.">Shared live</button>
+          <button data-runtime-mode="local" data-help="Creates a private simulation inside this browser tab. Pause, reset, ablation, sign rules and experiments are enabled.">Local lab</button>
         </nav>
         <div class="connection" aria-live="polite">
           <span class="status-dot" aria-hidden="true"></span>
@@ -35,18 +35,18 @@
     <main>
       <section class="context-bar" aria-label="Dataset summary">
         <div>
-          <span class="field-label">ORGANISM</span>
-          <strong><i>Ciona intestinalis</i> larva</strong>
+          <span class="field-label help-term" data-help="The larval stage of a tunicate chordate. Biological convention italicizes the genus and species name, but not the life stage.">ORGANISM</span>
+          <strong class="organism-name"><i>Ciona intestinalis</i><span>larva</span></strong>
         </div>
         <div>
-          <span class="field-label">DATASET</span>
+          <span class="field-label help-term" data-help="Neuron identities and directed contact-depth connectivity are loaded from the Ryan, Lu & Meinertzhagen 2016 connectome.">DATASET</span>
           <strong>Ryan et al., 2016</strong>
         </div>
         <div>
-          <span class="field-label">NETWORK</span>
+          <span class="field-label help-term" data-help="177 CNS neurons are simulated. The 2,903 source edges include connections involving source nodes outside the simulated 177-neuron CNS subset; 2,562 are internal CNS-to-CNS connections.">NETWORK</span>
           <strong>177 CNS neurons · 2,903 source edges</strong>
         </div>
-        <p>Real directed connectome · native left–right asymmetry · contact-depth weights</p>
+        <p class="help-term" data-help="Direction, left/right labels and contact depths come from the source connectome. Contact depth is used as a weight proxy; it is not a measured synaptic conductance.">Real directed connectome · native left–right asymmetry · contact-depth weights</p>
       </section>
 
       <aside id="runtimeNotice" class="runtime-notice">You are watching the same continuously running larva as every other visitor. Sensory interactions are public; destructive experiments are locked.</aside>
@@ -87,13 +87,13 @@
                 <span><b>Touch · right <em class="provenance heuristic">heuristic</em></b><small>Right-influencing afferent targets</small></span>
               </button>
             </div>
-            <button id="resetButton" class="reset">Reset all states</button>
+            <button id="resetButton" class="reset" data-help-default="Reset membrane potentials, activity, world position, ablations and learned weight changes.">Reset all states</button>
 
             <div class="playback" aria-label="Simulation playback controls">
-              <button id="playPauseButton" title="Pause simulation">Pause</button>
-              <button id="stepButton" title="Advance one 5 ms time step">Step</button>
-              <label for="speedSelect">Speed</label>
-              <select id="speedSelect">
+              <button id="playPauseButton" data-help-default="Pause or resume this private browser simulation.">Pause</button>
+              <button id="stepButton" data-help-default="Advance the private simulation by one 5 ms integration step.">Step</button>
+              <label for="speedSelect" class="help-term" data-help="Playback multiplier for the private Local lab simulation; it does not change the 5 ms numerical time step.">Speed</label>
+              <select id="speedSelect" data-help-default="Choose how quickly the private simulation runs relative to real time.">
                 <option value="0.25">0.25×</option>
                 <option value="0.5">0.5×</option>
                 <option value="1" selected>1×</option>
@@ -108,16 +108,16 @@
               <h2>Model</h2>
             </div>
             <dl class="parameters">
-              <div><dt>Integrator</dt><dd>LIF</dd></div>
-              <div><dt>Time step</dt><dd>5 ms</dd></div>
-              <div><dt>Membrane τ</dt><dd>20 ms</dd></div>
-              <div><dt>Synapse τ</dt><dd>12 ms</dd></div>
-              <div><dt>Active sign rule</dt><dd id="currentSignRule">All excitatory</dd></div>
-              <div><dt>Inhibitory edges</dt><dd id="inhibitoryEdgeCount">0</dd></div>
-              <div><dt>Weight profile</dt><dd id="currentGainProfile">Source-derived</dd></div>
+              <div><dt class="help-term" data-help="Leaky Integrate-and-Fire: a compact spiking-neuron model that accumulates input, leaks over time and emits a spike at threshold.">Integrator</dt><dd>LIF</dd></div>
+              <div><dt class="help-term" data-help="The numerical simulation advances in fixed 5 millisecond increments.">Time step</dt><dd>5 ms</dd></div>
+              <div><dt class="help-term" data-help="Membrane time constant: how quickly a neuron's membrane potential decays toward rest.">Membrane τ</dt><dd>20 ms</dd></div>
+              <div><dt class="help-term" data-help="Synaptic-current time constant: how quickly input current from a spike decays.">Synapse τ</dt><dd>12 ms</dd></div>
+              <div><dt class="help-term" data-help="The rule currently assigning excitatory or inhibitory signs. Original synaptic signs are not fully annotated.">Active sign rule</dt><dd id="currentSignRule">All excitatory</dd></div>
+              <div><dt class="help-term" data-help="Number of observed connections currently assigned a negative model weight by the selected sign rule.">Inhibitory edges</dt><dd id="inhibitoryEdgeCount">0</dd></div>
+              <div><dt class="help-term" data-help="Source-derived preserves fixed contact-depth scaling. Calibrated gains add explicitly experimental class multipliers.">Weight profile</dt><dd id="currentGainProfile">Source-derived</dd></div>
             </dl>
             <label class="sign-rule-label" for="signRuleSelect">Synaptic sign model</label>
-            <select id="signRuleSelect" class="sign-rule-select">
+            <select id="signRuleSelect" class="sign-rule-select" data-help-default="Choose the transparent assumption used for synaptic signs. This does not alter the observed network topology.">
               <option value="all_excitatory">All excitatory</option>
               <option value="heuristic_inhibition">Heuristic inhibition · recommended experiment</option>
               <option value="random_20_inhibitory">Random 20% inhibitory · experimental</option>
@@ -126,14 +126,14 @@
             <p class="science-warning">Synaptic signs are not fully annotated in the original Ryan et al. 2016 connectome. Inhibition is implemented through transparent heuristics and optional experimental modes.</p>
             <div class="gain-controls">
               <span class="field-label">SYNAPTIC-GAIN MODE</span>
-              <button id="originalGains">Use source-derived weights</button>
-              <button id="optimizeGains">Calibrate experimental gains</button>
+              <button id="originalGains" data-help-default="Remove fitted class multipliers and use the fixed contact-depth-derived weight scaling.">Use source-derived weights</button>
+              <button id="optimizeGains" data-help-default="Fit experimental class-level gain multipliers on a synthetic left/right touch benchmark.">Calibrate experimental gains</button>
               <p id="gainResult">No fitted gain multipliers are active.</p>
             </div>
             <div class="learning-controls">
               <div class="learning-heading">
                 <span><span class="field-label">EXPERIMENTAL ADAPTATION</span><b>Reward-modulated plasticity</b></span>
-                <button id="learningToggle" class="learning-toggle" role="switch" aria-checked="false"><i></i><span>Off</span></button>
+                <button id="learningToggle" class="learning-toggle" role="switch" aria-checked="false" data-help-default="Enable an experimental reward-modulated plasticity rule. Source connectivity remains unchanged."><i></i><span>Off</span></button>
               </div>
               <p>Eligibility traces adapt observed inputs to MGIN and motor neurons. The reward is improved distance to the modeled light—not a Ryan et al. annotation or a claim about natural Ciona goals.</p>
               <dl class="learning-stats">
@@ -141,7 +141,7 @@
                 <div><dt>Changed edges</dt><dd id="learningEdges">0</dd></div>
                 <div><dt>Mean change</dt><dd id="learningChange">0.0000</dd></div>
               </dl>
-              <button id="clearLearning" class="clear-learning">Clear learned weights</button>
+              <button id="clearLearning" class="clear-learning" data-help-default="Restore all experimental plasticity factors to 1.0 without changing source connectivity.">Clear learned weights</button>
             </div>
           </section>
         </aside>
@@ -159,7 +159,7 @@
 
           <section class="world-panel activity-view">
             <div class="world-heading">
-              <div><span class="field-label"><span id="worldRuntimeLabel">SHARED SENSORIMOTOR LOOP</span> · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
+              <div><span class="field-label"><span id="worldRuntimeLabel">SHARED SENSORIMOTOR LOOP</span> · <em class="provenance heuristic help-term" data-help="The 2D environment, movement physics and conversion from world variables to sensory current are model assumptions—not observations from Ryan et al.">modeled world</em></span><strong>Larval world</strong></div>
               <div class="world-tools" role="group" aria-label="World interaction tool">
                 <button data-world-tool="light" class="active">Move light</button>
                 <button data-world-tool="touch">Touch larva</button>
@@ -187,7 +187,7 @@
 
             <figure class="connectome-map">
               <figcaption>
-                <div><strong>Whole-CNS network</strong><span>Every point is one CNS neuron</span></div>
+                <div><strong class="help-term" data-help="A topology view of all 177 simulated CNS neurons. Positions are graph-layout coordinates, not anatomical locations.">Whole-CNS network</strong><span>Every point is one CNS neuron</span></div>
                 <p><b id="mapNeuronCount">177</b> neurons <i></i> <b id="mapEdgeCount">2,562</b> internal connections</p>
               </figcaption>
               <canvas id="connectomeMap" height="300" aria-label="Interactive network of all 177 CNS neurons and their internal directed connections"></canvas>
@@ -252,7 +252,7 @@
               <h2>Motor readout</h2>
             </div>
 
-            <div class="score-caption">TURN LATERALITY · 0 IS STRAIGHT</div>
+            <div class="score-caption help-term" data-help="A 300 ms smoothed difference between right and left motor-pool activity. −1 is left-biased, +1 is right-biased, and 0 means balanced straight swimming—not inactivity.">TURN LATERALITY · 0 IS STRAIGHT</div>
             <div class="direction-value" id="directionValue">0.000</div>
             <div class="direction-label" id="directionLabel">Swimming straight</div>
 
@@ -262,10 +262,10 @@
             </div>
 
             <dl class="readouts">
-              <div><dt>Spikes / frame</dt><dd id="firingCount">0</dd></div>
-              <div><dt>Left motor pool</dt><dd id="leftMotor">0.000</dd></div>
-              <div><dt>Right motor pool</dt><dd id="rightMotor">0.000</dd></div>
-              <div><dt>Modeled speed</dt><dd id="swimSpeed">0.012 world/s</dd></div>
+              <div><dt class="help-term" data-help="Number of neurons that spiked in the latest 5 ms simulation frame.">Spikes / frame</dt><dd id="firingCount">0</dd></div>
+              <div><dt class="help-term" data-help="Exponentially smoothed firing activity of source-labelled left motor neurons.">Left motor pool</dt><dd id="leftMotor">0.000</dd></div>
+              <div><dt class="help-term" data-help="Exponentially smoothed firing activity of source-labelled right motor neurons.">Right motor pool</dt><dd id="rightMotor">0.000</dd></div>
+              <div><dt class="help-term" data-help="Translation speed in normalized world units per second. This is modeled kinematics, not a measured biological speed.">Modeled speed</dt><dd id="swimSpeed">0.012 world/s</dd></div>
               <div><dt>Connected viewers</dt><dd id="liveViewers">0</dd></div>
               <div><dt>Current life</dt><dd id="liveAge">0s</dd></div>
             </dl>
@@ -278,8 +278,8 @@
 
             <div class="group-ablation">
               <span class="field-label">MOTOR-CIRCUIT ABLATION</span>
-              <button data-ablate-side="left">Ablate left motor-related</button>
-              <button data-ablate-side="right">Ablate right motor-related</button>
+              <button data-ablate-side="left" data-help-default="Temporarily silence every left-labelled MN or MGIN neuron in the private simulation.">Ablate left motor-related</button>
+              <button data-ablate-side="right" data-help-default="Temporarily silence every right-labelled MN or MGIN neuron in the private simulation.">Ablate right motor-related</button>
             </div>
           </section>
 
@@ -294,7 +294,7 @@
                 <div><dt>Incoming</dt><dd id="detailIncoming">0</dd></div>
                 <div><dt>Outgoing</dt><dd id="detailOutgoing">0</dd></div>
               </dl>
-              <button id="ablateButton" class="ablate">Ablate neuron</button>
+              <button id="ablateButton" class="ablate" data-help-default="Temporarily silence the selected neuron in this private simulation.">Ablate neuron</button>
               <div class="path-controls">
                 <label for="pathStimulus">Trace sensory path</label>
                 <select id="pathStimulus">
@@ -314,7 +314,7 @@
             <span class="field-label">EXPERIMENT RECORD</span>
             <p id="recordCount">0 states observed in this browser</p>
             <label class="seed-label" for="seedInput">Random seed <input id="seedInput" type="number" min="0" max="2147483647" value="7" /></label>
-            <div class="experiment-actions"><button id="startExperiment">Start new</button><button id="replayExperiment">Replay</button></div>
+            <div class="experiment-actions"><button id="startExperiment" data-help-default="Reset using this seed and begin recording deterministic intervention events.">Start new</button><button id="replayExperiment" data-help-default="Reset and replay the currently recorded events at their original simulation times.">Replay</button></div>
             <p id="experimentStatus">No deterministic experiment is active.</p>
             <div><button id="exportJson">Export JSON</button><button id="exportCsv">Export CSV</button></div>
           </section>
@@ -350,6 +350,7 @@
     </main>
 
     <div id="tooltip" class="tooltip" role="tooltip"></div>
-    <script type="module" src="/static/dist/app.js?v=20"></script>
+    <div id="helpTooltip" class="help-tooltip" role="tooltip"></div>
+    <script type="module" src="/static/dist/app.js?v=21"></script>
   </body>
 </html>

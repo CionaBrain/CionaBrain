@@ -448,6 +448,9 @@ main { max-width: 1640px; padding: 26px 30px 40px; }
   box-shadow: 0 12px 38px rgba(22,56,70,.055); backdrop-filter: blur(14px);
 }
 .context-bar strong { font-size: 13px; }
+.organism-name { display: flex !important; align-items: baseline; gap: 5px; font-style: normal; }
+.organism-name i { font-family: Georgia, "Times New Roman", serif; font-size: 14px; font-weight: 500; letter-spacing: 0; }
+.organism-name span { color: var(--muted); font-size: 12px; font-weight: 500; font-style: normal; }
 .context-bar p { font-size: 12px; }
 .field-label { margin-bottom: 7px; font-size: 9px; letter-spacing: .14em; }
 .runtime-notice {
@@ -528,6 +531,16 @@ main { max-width: 1640px; padding: 26px 30px 40px; }
 .provenance-panel summary { padding: 17px 22px; }
 .provenance-panel summary b { font-size: 12px; }
 button:disabled { cursor: not-allowed !important; }
+.help-term { text-decoration: underline dotted rgba(80,111,124,.42); text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: help; }
+.help-tooltip {
+  position: fixed; z-index: 100; top: 0; left: 0; width: max-content; max-width: min(320px, calc(100vw - 24px));
+  padding: 10px 12px; border: 1px solid rgba(185,207,216,.28); border-radius: 10px;
+  color: #eff8fa; background: rgba(8,35,47,.96); box-shadow: 0 10px 30px rgba(4,27,38,.24);
+  font: 500 11px/1.45 Inter, "SF Pro Text", "Segoe UI", sans-serif; letter-spacing: 0;
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease, visibility .12s ease;
+}
+.help-tooltip.visible { opacity: 1; visibility: visible; }
+button:disabled[data-help], select:disabled[data-help], input:disabled[data-help] { pointer-events: auto; }
 
 /* World and connectome are one continuous live view. There is deliberately no
    manual view switch: visitors can see movement and neural firing together. */

@@ -10,6 +10,7 @@ const intensityValue = document.querySelector("#intensityValue");
 const connection = document.querySelector(".connection");
 const connectionText = document.querySelector("#connectionText");
 const tooltip = document.querySelector("#tooltip");
+const helpTooltip = document.querySelector("#helpTooltip");
 const trace = document.querySelector("#activityTrace");
 const raster = document.querySelector("#rasterPlot");
 const connectomeCanvas = document.querySelector("#connectomeMap");
@@ -53,7 +54,11 @@ function setControlScope() {
   const privateOnly = ["#resetButton", "#playPauseButton", "#stepButton", "#speedSelect", "#signRuleSelect", "#originalGains", "#optimizeGains", "#learningToggle", "#clearLearning", "#startExperiment", "#replayExperiment", "#ablateButton", "[data-ablate-side]"];
   document.querySelectorAll(privateOnly.join(",")).forEach((control) => {
     control.disabled = transportMode === "shared";
-    control.title = transportMode === "shared" ? "Switch to Local lab to change or reset the model." : "";
+    const help = transportMode === "shared"
+      ? "Unavailable in Shared live because this organism is shared by every visitor. Switch to Local lab to change, pause, reset or ablate the model."
+      : control.dataset.helpDefault || "Available in this private Local lab simulation.";
+    control.dataset.help = help;
+    control.setAttribute("aria-description", help);
   });
   document.querySelectorAll("[data-runtime-mode]").forEach((button) => button.classList.toggle("active", button.dataset.runtimeMode === transportMode));
   const notice = document.querySelector("#runtimeNotice");
@@ -61,6 +66,53 @@ function setControlScope() {
     ? "You are watching the same continuously running larva as every other visitor. Sensory interactions are public; destructive experiments are locked."
     : "This private laboratory runs in your browser. Model changes, ablation, reset, recording and replay affect only this tab.";
 }
+
+function positionHelpTooltip(event) {
+  const gap = 14;
+  const width = helpTooltip.offsetWidth;
+  const height = helpTooltip.offsetHeight;
+  const left = Math.min(window.innerWidth - width - 12, Math.max(12, event.clientX + gap));
+  const top = event.clientY + height + gap > window.innerHeight
+    ? Math.max(12, event.clientY - height - gap)
+    : event.clientY + gap;
+  helpTooltip.style.transform = `translate(${left}px, ${top}px)`;
+}
+
+function showHelp(target, event) {
+  if (!target?.dataset.help) return;
+  helpTooltip.textContent = target.dataset.help;
+  helpTooltip.classList.add("visible");
+  if (event) positionHelpTooltip(event);
+  else {
+    const bounds = target.getBoundingClientRect();
+    positionHelpTooltip({ clientX: bounds.left, clientY: bounds.bottom });
+  }
+}
+
+document.addEventListener("pointerover", (event) => {
+  const target = event.target.closest?.("[data-help]");
+  if (target) showHelp(target, event);
+});
+document.addEventListener("pointermove", (event) => {
+  if (helpTooltip.classList.contains("visible") && event.target.closest?.("[data-help]")) positionHelpTooltip(event);
+});
+document.addEventListener("pointerout", (event) => {
+  const target = event.target.closest?.("[data-help]");
+  if (target && !event.relatedTarget?.closest?.("[data-help]")) helpTooltip.classList.remove("visible");
+});
+document.addEventListener("focusin", (event) => showHelp(event.target.closest?.("[data-help]")));
+document.addEventListener("focusout", () => helpTooltip.classList.remove("visible"));
+
+const provenanceHelp = {
+  measured: "Directly represented from the Ryan et al. 2016 connectome data.",
+  derived: "Computed from measured connectome structure, but not itself a directly measured biological value.",
+  heuristic: "An explicit modeling assumption used where the source connectome does not provide a complete biological annotation.",
+};
+document.querySelectorAll(".provenance").forEach((badge) => {
+  const kind = Object.keys(provenanceHelp).find((name) => badge.classList.contains(name));
+  if (kind && !badge.dataset.help) badge.dataset.help = provenanceHelp[kind];
+  badge.classList.add("help-term");
+});
 
 function indexConnections(connections) {
   connectomeEdges = connections;
@@ -569,6 +621,7 @@ function handleMessage(message) {
     const button = document.querySelector("#optimizeGains");
     button.disabled = false;
     button.textContent = "Calibrate experimental gains";
+    button.dataset.help = button.dataset.helpDefault;
   }
   if (message.type === "error") {
     console.warn(message.message);
@@ -647,6 +700,7 @@ function renderComparison(message) {
   const button = document.querySelector("#runComparison");
   button.disabled = false;
   button.textContent = "Run matched trial";
+  delete button.dataset.help;
 }
 
 function signed(value) {
@@ -775,6 +829,7 @@ document.querySelector("#optimizeGains").addEventListener("click", () => {
   const button = document.querySelector("#optimizeGains");
   button.disabled = true;
   button.textContent = "Calibrating…";
+  button.dataset.help = "Calibration is currently running. The control will unlock when the deterministic benchmark finishes.";
   document.querySelector("#gainResult").textContent = "Running deterministic class-gain calibration…";
   send({ type: "optimize_gains" });
 });
@@ -792,6 +847,7 @@ document.querySelector("#runComparison").addEventListener("click", () => {
   const button = document.querySelector("#runComparison");
   button.disabled = true;
   button.textContent = "Running trial…";
+  button.dataset.help = "Two matched simulations are currently running. The control will unlock when both results are ready.";
   document.querySelector("#comparisonResult").textContent = "Running two matched simulations…";
   send({
     type: "run_comparison",
