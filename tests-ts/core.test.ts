@@ -21,6 +21,22 @@ test("seeded simulations are deterministic", () => {
   assert.deepEqual(first.snapshot(), second.snapshot());
 });
 
+test("the autonomous world produces visible, non-saturated activity", () => {
+  const sim = new Simulator(graph, 2016);
+  sim.setSignRule("heuristic_inhibition");
+  let spikes = 0, motorSpikes = 0, peak = 0;
+  for (let i = 0; i < 2000; i++) {
+    sim.step();
+    const frame = sim.spikes.reduce((sum, value) => sum + value, 0);
+    spikes += frame;
+    motorSpikes += [...sim.leftMotor, ...sim.rightMotor].reduce((sum, id) => sum + sim.spikes[id], 0);
+    peak = Math.max(peak, frame);
+  }
+  assert.ok(spikes > 2000, "modeled light and gravity should drive spikes without manual input");
+  assert.ok(motorSpikes > 0, "sensory activity should reach the motor pool");
+  assert.ok(peak < 60, "the network should not saturate");
+});
+
 test("path tracing only returns observed directed edges", () => {
   const sim = new Simulator(graph);
   const result = sim.tracePath(sim.leftMotor[0], "light") as any;

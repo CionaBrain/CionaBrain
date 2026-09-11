@@ -87,7 +87,7 @@ var Simulator = class {
     this.rng = rngFrom(seed);
     const nonzero = [...connectome.adjacency].filter((value) => value > 0).sort((a, b) => a - b);
     const scale = nonzero[Math.floor(nonzero.length * 0.95)] || 1;
-    for (let i = 0; i < this.baseWeights.length; i++) this.baseWeights[i] = Math.log1p(connectome.adjacency[i] / scale) * 1.5;
+    for (let i = 0; i < this.baseWeights.length; i++) this.baseWeights[i] = Math.log1p(connectome.adjacency[i] / scale) * 0.75;
     this.leftMotor = connectome.neurons.filter((n) => n.name.startsWith("MN") && n.name.endsWith("L")).map((n) => n.id);
     this.rightMotor = connectome.neurons.filter((n) => n.name.startsWith("MN") && n.name.endsWith("R")).map((n) => n.id);
     this.motorGroups = {
@@ -326,12 +326,15 @@ var Simulator = class {
     this.timeMs += this.dt;
   }
   worldInput(out) {
-    const w = this.world, dx = w.light_x - w.x, dy = w.light_y - w.y, distance = Math.hypot(dx, dy), bearing = Math.atan2(Math.sin(Math.atan2(dy, dx) - w.heading), Math.cos(Math.atan2(dy, dx) - w.heading)), light = w.light_strength * Math.max(0, 1 - distance / 1.25), contrast = Math.sin(bearing);
-    for (const id of this.lightLeft) out[id] += light * (0.16 + 0.18 * Math.max(0, contrast));
-    for (const id of this.lightRight) out[id] += light * (0.16 + 0.18 * Math.max(0, -contrast));
+    const w = this.world, dx = w.light_x - w.x, dy = w.light_y - w.y;
+    const distance = Math.hypot(dx, dy);
+    const bearing = Math.atan2(Math.sin(Math.atan2(dy, dx) - w.heading), Math.cos(Math.atan2(dy, dx) - w.heading));
+    const light = w.light_strength * Math.max(0, 1 - distance / 1.25), contrast = Math.sin(bearing);
+    for (const id of this.lightLeft) out[id] += 0.86 + light * (1.25 + 0.75 * Math.max(0, contrast));
+    for (const id of this.lightRight) out[id] += 0.86 + light * (1.25 + 0.75 * Math.max(0, -contrast));
     const ant = this.targets.gravity.slice(0, 2), tilt = Math.sin(w.gravity_angle - w.heading);
-    if (ant[0] !== void 0) out[ant[0]] += 0.1 + 0.13 * Math.max(0, tilt);
-    if (ant[1] !== void 0) out[ant[1]] += 0.1 + 0.13 * Math.max(0, -tilt);
+    if (ant[0] !== void 0) out[ant[0]] += 0.86 + 0.42 * Math.max(0, tilt);
+    if (ant[1] !== void 0) out[ant[1]] += 0.86 + 0.42 * Math.max(0, -tilt);
   }
   mean(ids) {
     return ids.reduce((sum, id) => sum + this.rate[id], 0) / Math.max(1, ids.length);

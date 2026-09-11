@@ -63,7 +63,10 @@ export class Simulator {
     this.seed = seed; this.rng = rngFrom(seed);
     const nonzero = [...connectome.adjacency].filter(value => value > 0).sort((a, b) => a - b);
     const scale = nonzero[Math.floor(nonzero.length * .95)] || 1;
-    for (let i = 0; i < this.baseWeights.length; i++) this.baseWeights[i] = Math.log1p(connectome.adjacency[i] / scale) * 1.5;
+    // Contact depth is not conductance. A conservative global factor keeps the
+    // recurrent network responsive without turning a brief input into permanent
+    // self-excitation; the original contact depths remain untouched in data/.
+    for (let i = 0; i < this.baseWeights.length; i++) this.baseWeights[i] = Math.log1p(connectome.adjacency[i] / scale) * .75;
     this.leftMotor = connectome.neurons.filter(n => n.name.startsWith("MN") && n.name.endsWith("L")).map(n => n.id);
     this.rightMotor = connectome.neurons.filter(n => n.name.startsWith("MN") && n.name.endsWith("R")).map(n => n.id);
     this.motorGroups = {
@@ -165,7 +168,20 @@ export class Simulator {
     }
     this.timeMs += this.dt;
   }
-  private worldInput(out: Float32Array): void { const w = this.world, dx = w.light_x - w.x, dy = w.light_y - w.y, distance = Math.hypot(dx, dy), bearing = Math.atan2(Math.sin(Math.atan2(dy, dx) - w.heading), Math.cos(Math.atan2(dy, dx) - w.heading)), light = w.light_strength * Math.max(0, 1 - distance / 1.25), contrast = Math.sin(bearing); for (const id of this.lightLeft) out[id] += light * (.16 + .18 * Math.max(0, contrast)); for (const id of this.lightRight) out[id] += light * (.16 + .18 * Math.max(0, -contrast)); const ant = this.targets.gravity.slice(0, 2), tilt = Math.sin(w.gravity_angle - w.heading); if (ant[0] !== undefined) out[ant[0]] += .1 + .13 * Math.max(0, tilt); if (ant[1] !== undefined) out[ant[1]] += .1 + .13 * Math.max(0, -tilt); }
+  private worldInput(out: Float32Array): void {
+    const w = this.world, dx = w.light_x - w.x, dy = w.light_y - w.y;
+    const distance = Math.hypot(dx, dy);
+    const bearing = Math.atan2(Math.sin(Math.atan2(dy, dx) - w.heading), Math.cos(Math.atan2(dy, dx) - w.heading));
+    const light = w.light_strength * Math.max(0, 1 - distance / 1.25), contrast = Math.sin(bearing);
+    // Modeled sensory transduction (not measured current): tonic sub-threshold
+    // drive plus a spatial component lets the autonomous world cross the LIF
+    // threshold intermittently instead of requiring a visitor button press.
+    for (const id of this.lightLeft) out[id] += .86 + light * (1.25 + .75 * Math.max(0, contrast));
+    for (const id of this.lightRight) out[id] += .86 + light * (1.25 + .75 * Math.max(0, -contrast));
+    const ant = this.targets.gravity.slice(0, 2), tilt = Math.sin(w.gravity_angle - w.heading);
+    if (ant[0] !== undefined) out[ant[0]] += .86 + .42 * Math.max(0, tilt);
+    if (ant[1] !== undefined) out[ant[1]] += .86 + .42 * Math.max(0, -tilt);
+  }
   private mean(ids: number[]): number { return ids.reduce((sum, id) => sum + this.rate[id], 0) / Math.max(1, ids.length); }
   private advanceWorld(): void { const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), direction = (right - left) / (right + left + .02), dt = this.dt / 1000; this.world.heading = (this.world.heading + direction * 2.4 * dt) % (2 * Math.PI); const speed = .012 + .075 * Math.min(1, (left + right) * 4); this.world.x = (this.world.x + Math.cos(this.world.heading) * speed * dt + 1) % 1; this.world.y = (this.world.y + Math.sin(this.world.heading) * speed * dt + 1) % 1; if (this.world.touch_remaining_ms > 0 && (this.world.touch_remaining_ms -= this.dt) <= 0) Object.assign(this.world, { touch_x: null, touch_y: null, touch_side: null }); }
 
