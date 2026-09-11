@@ -252,9 +252,9 @@
               <h2>Motor readout</h2>
             </div>
 
-            <div class="score-caption">LATERALITY SCORE</div>
+            <div class="score-caption">TURN LATERALITY · 0 IS STRAIGHT</div>
             <div class="direction-value" id="directionValue">0.00</div>
-            <div class="direction-label" id="directionLabel">Neutral</div>
+            <div class="direction-label" id="directionLabel">Swimming straight</div>
 
             <div class="direction-scale" aria-label="Left to right direction scale">
               <div class="scale-line"><i id="directionMarker"></i></div>
@@ -265,6 +265,7 @@
               <div><dt>Spikes / frame</dt><dd id="firingCount">0</dd></div>
               <div><dt>Left motor pool</dt><dd id="leftMotor">0.000</dd></div>
               <div><dt>Right motor pool</dt><dd id="rightMotor">0.000</dd></div>
+              <div><dt>Modeled speed</dt><dd id="swimSpeed">0.012 world/s</dd></div>
               <div><dt>Connected viewers</dt><dd id="liveViewers">0</dd></div>
               <div><dt>Current life</dt><dd id="liveAge">0s</dd></div>
             </dl>
@@ -349,6 +350,6 @@
     </main>
 
     <div id="tooltip" class="tooltip" role="tooltip"></div>
-    <script type="module" src="/static/dist/app.js?v=18"></script>
+    <script type="module" src="/static/dist/app.js?v=19"></script>
   </body>
 </html>

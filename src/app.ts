@@ -209,6 +209,7 @@ function renderState(state) {
   document.querySelector("#simTime").textContent = state.time_ms.toFixed(1);
   document.querySelector("#leftMotor").textContent = state.motor.left.toFixed(3);
   document.querySelector("#rightMotor").textContent = state.motor.right.toFixed(3);
+  document.querySelector("#swimSpeed").textContent = `${state.movement.speed.toFixed(3)} world/s`;
   document.querySelector("#activeStimuli").textContent = state.active_stimuli.length
     ? state.active_stimuli.map(formatStimulus).join(" + ")
     : "None";
@@ -251,8 +252,9 @@ function renderState(state) {
   const score = state.direction;
   document.querySelector("#directionValue").textContent = `${score >= 0 ? "+" : ""}${score.toFixed(2)}`;
   document.querySelector("#directionMarker").style.left = `${(score + 1) * 50}%`;
-  document.querySelector("#directionLabel").textContent =
-    Math.abs(score) < 0.08 ? "Neutral" : score < 0 ? "Turning left" : "Turning right";
+  document.querySelector("#directionLabel").textContent = Math.abs(score) < 0.08
+    ? (state.movement.speed > 0.001 ? "Swimming straight" : "Stationary")
+    : score < 0 ? "Turning left" : "Turning right";
   const motorBlock = document.querySelector(".motor-block");
   motorBlock.classList.toggle("strong-left", score < -0.3);
   motorBlock.classList.toggle("strong-right", score > 0.3);
@@ -279,6 +281,7 @@ function renderState(state) {
       time_ms: state.time_ms,
       spikes: state.spikes,
       direction: state.direction,
+      movement: state.movement,
       motor: state.motor,
       stimuli: state.active_stimuli,
       ablated: state.ablated,
@@ -812,9 +815,9 @@ document.querySelector("#exportJson").addEventListener("click", () => {
   }, null, 2));
 });
 document.querySelector("#exportCsv").addEventListener("click", () => {
-  const rows = ["time_ms,neuron_id,neuron_name,direction,left_motor,right_motor,world_x,world_y,heading,active_stimuli,sign_rule,gain_profile,learning_enabled,learned_edges,learning_reward,seed,inhibitory_edges"];
+  const rows = ["time_ms,neuron_id,neuron_name,laterality,raw_laterality,modeled_speed,motor_drive,left_motor,right_motor,world_x,world_y,heading,active_stimuli,sign_rule,gain_profile,learning_enabled,learned_edges,learning_reward,seed,inhibitory_edges"];
   records.forEach((state) => state.spikes.forEach((id) => {
-    rows.push([state.time_ms, id, neurons[id].name, state.direction, state.motor.left, state.motor.right, state.world.x, state.world.y, state.world.heading, state.stimuli.join("+"), state.sign_rule, state.gain_profile, state.learning?.enabled || false, state.learning?.modified_edges || 0, state.learning?.reward || 0, state.seed, state.inhibitory_edges].join(","));
+    rows.push([state.time_ms, id, neurons[id].name, state.direction, state.movement.raw_laterality, state.movement.speed, state.movement.motor_drive, state.motor.left, state.motor.right, state.world.x, state.world.y, state.world.heading, state.stimuli.join("+"), state.sign_rule, state.gain_profile, state.learning?.enabled || false, state.learning?.modified_edges || 0, state.learning?.reward || 0, state.seed, state.inhibitory_edges].join(","));
   }));
   downloadFile("cionabrain-spikes.csv", "text/csv", rows.join("\n"));
 });

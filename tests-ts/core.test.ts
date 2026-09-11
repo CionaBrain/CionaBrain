@@ -37,6 +37,17 @@ test("the autonomous world produces visible, non-saturated activity", () => {
   assert.ok(peak < 60, "the network should not saturate");
 });
 
+test("straight swimming and laterality are distinct behavioral readouts", () => {
+  const sim = new Simulator(graph, 2016);
+  const initial = sim.snapshot() as any;
+  assert.equal(initial.direction, 0);
+  assert.ok(initial.movement.speed > 0, "the modeled world includes a baseline forward speed");
+  assert.match(initial.movement.note, /Modeled kinematics/);
+  const startY = initial.world.y;
+  for (let i = 0; i < 20; i++) sim.step();
+  assert.notEqual((sim.snapshot() as any).world.y, startY, "zero laterality must not imply zero translation");
+});
+
 test("path tracing only returns observed directed edges", () => {
   const sim = new Simulator(graph);
   const result = sim.tracePath(sim.leftMotor[0], "light") as any;

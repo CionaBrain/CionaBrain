@@ -136,6 +136,13 @@ var Simulator = class {
   learnedEdgeCount = 0;
   learningMeanChange = 0;
   timeMs = 0;
+  // Behavioural readouts are deliberately kept separate: a larva can move
+  // forward while its left/right motor output is balanced. `turnBias` is a
+  // short low-pass filtered motor-pool difference; `swimSpeed` is the modeled
+  // translation speed used by the world (neither is a measured kinematic).
+  turnBias = 0;
+  rawTurnBias = 0;
+  swimSpeed = 0.012;
   active = /* @__PURE__ */ new Map();
   leftMotor;
   rightMotor;
@@ -169,6 +176,8 @@ var Simulator = class {
     this.refractory.fill(0);
     this.rate.fill(0);
     this.active.clear();
+    this.turnBias = this.rawTurnBias = 0;
+    this.swimSpeed = 0.012;
     if (resetTime) {
       this.timeMs = 0;
       this.rng = rngFrom(this.seed);
@@ -343,11 +352,15 @@ var Simulator = class {
     return ids.reduce((sum, id) => sum + this.rate[id], 0) / Math.max(1, ids.length);
   }
   advanceWorld() {
-    const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), direction = (right - left) / (right + left + 0.02), dt = this.dt / 1e3;
-    this.world.heading = (this.world.heading + direction * 2.4 * dt) % (2 * Math.PI);
-    const speed = 0.012 + 0.075 * Math.min(1, (left + right) * 4);
-    this.world.x = (this.world.x + Math.cos(this.world.heading) * speed * dt + 1) % 1;
-    this.world.y = (this.world.y + Math.sin(this.world.heading) * speed * dt + 1) % 1;
+    const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), dt = this.dt / 1e3;
+    this.rawTurnBias = clamp((right - left) / (right + left + 0.02), -1, 1);
+    const turnAlpha = 1 - Math.exp(-this.dt / 300);
+    this.turnBias += turnAlpha * (this.rawTurnBias - this.turnBias);
+    const motorDrive = Math.min(1, (left + right) * 4);
+    this.swimSpeed = 0.012 + 0.075 * motorDrive;
+    this.world.heading = (this.world.heading + this.turnBias * 2.4 * dt) % (2 * Math.PI);
+    this.world.x = (this.world.x + Math.cos(this.world.heading) * this.swimSpeed * dt + 1) % 1;
+    this.world.y = (this.world.y + Math.sin(this.world.heading) * this.swimSpeed * dt + 1) % 1;
     if (this.world.touch_remaining_ms > 0 && (this.world.touch_remaining_ms -= this.dt) <= 0) Object.assign(this.world, { touch_x: null, touch_y: null, touch_side: null });
   }
   applyLearning(distanceBefore, distanceAfter, previous, next) {
@@ -371,9 +384,9 @@ var Simulator = class {
     this.learningMeanChange = totalChange / Math.max(1, this.plasticEdges.length);
   }
   snapshot() {
-    const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), direction = clamp((right - left) / (right + left + 0.02), -1, 1);
+    const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor);
     const spikeIds = [...this.spikes.keys()].filter((i) => this.spikes[i]);
-    return { type: "state", time_ms: this.timeMs, spikes: spikeIds, firing_count: spikeIds.length, direction: +direction.toFixed(3), motor: { left: +left.toFixed(3), right: +right.toFixed(3) }, active_stimuli: [...this.active.keys()], ablated: [...this.ablated.keys()].filter((i) => this.ablated[i]), sign_rule: this.signRule, sign_rule_label: SIGN_RULES[this.signRule].label, inhibitory_edges: this.inhibitoryEdges, seed: this.seed, gain_profile: this.gainProfile, gain_profile_label: GAIN_PROFILES[this.gainProfile].label, gain_parameters: this.gainParameters, gain_objective: this.gainObjective, learning: { enabled: this.learningEnabled, rule: "reward_modulated_eligibility", task: "Modeled light-approach proxy", plastic_edges: this.plasticEdges.length, modified_edges: this.learnedEdgeCount, mean_abs_change: +this.learningMeanChange.toFixed(5), reward: +this.learningReward.toFixed(5), updates: this.learningUpdates, assumption: "Experimental rule; topology is measured, plasticity and reward are modeled." }, world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(5) : v])) };
+    return { type: "state", time_ms: this.timeMs, spikes: spikeIds, firing_count: spikeIds.length, direction: +this.turnBias.toFixed(3), movement: { speed: +this.swimSpeed.toFixed(4), motor_drive: +Math.min(1, (left + right) * 4).toFixed(3), raw_laterality: +this.rawTurnBias.toFixed(3), note: "Modeled kinematics; speed and temporal smoothing are not measured animal behaviour." }, motor: { left: +left.toFixed(3), right: +right.toFixed(3) }, active_stimuli: [...this.active.keys()], ablated: [...this.ablated.keys()].filter((i) => this.ablated[i]), sign_rule: this.signRule, sign_rule_label: SIGN_RULES[this.signRule].label, inhibitory_edges: this.inhibitoryEdges, seed: this.seed, gain_profile: this.gainProfile, gain_profile_label: GAIN_PROFILES[this.gainProfile].label, gain_parameters: this.gainParameters, gain_objective: this.gainObjective, learning: { enabled: this.learningEnabled, rule: "reward_modulated_eligibility", task: "Modeled light-approach proxy", plastic_edges: this.plasticEdges.length, modified_edges: this.learnedEdgeCount, mean_abs_change: +this.learningMeanChange.toFixed(5), reward: +this.learningReward.toFixed(5), updates: this.learningUpdates, assumption: "Experimental rule; topology is measured, plasticity and reward are modeled." }, world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(5) : v])) };
   }
   metadata() {
     return { type: "metadata", neurons: this.connectome.neurons, stimulus_targets: Object.fromEntries(Object.entries(this.targets).map(([k, ids]) => [k, ids.map((id) => this.connectome.neurons[id].name)])), connections: this.connectome.edges, sign_rules: SIGN_RULES, gain_profiles: GAIN_PROFILES, motor_groups: this.motorGroups, source: { dataset: "Ryan et al. 2016 / Netzschleuder cintestinalis", graph_nodes: this.connectome.fullNodes, graph_edges: this.connectome.fullEdges, simulated_cns_neurons: 177, synapse_note: "Synaptic signs are not fully annotated in the original connectome; all inhibition and learning modes are explicit assumptions.", provenance: { measured: ["Neuron identities and directed edges", "Cumulative presynaptic contact depth", "Explicit L/R suffixes in source labels"], derived: ["Log-scaled LIF connection magnitudes", "Motor-pool laterality score", "Two-hop touch target partition"], heuristic: ["Synaptic signs", "World-to-sensory transduction", "Retinal left/right proxy banks", "Larval movement physics and reward-modulated plasticity"] } } };

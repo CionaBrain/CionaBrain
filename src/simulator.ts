@@ -50,6 +50,13 @@ export class Simulator {
   learnedEdgeCount = 0;
   learningMeanChange = 0;
   timeMs = 0;
+  // Behavioural readouts are deliberately kept separate: a larva can move
+  // forward while its left/right motor output is balanced. `turnBias` is a
+  // short low-pass filtered motor-pool difference; `swimSpeed` is the modeled
+  // translation speed used by the world (neither is a measured kinematic).
+  turnBias = 0;
+  rawTurnBias = 0;
+  swimSpeed = .012;
   active = new Map<Stimulus, { intensity: number; remaining_ms: number }>();
   leftMotor: number[];
   rightMotor: number[];
@@ -97,7 +104,7 @@ export class Simulator {
   }
 
   setSeed(seed: number): void { this.seed = clamp(Math.floor(seed), 0, 2147483647); this.resetDynamic(true); }
-  resetDynamic(resetTime: boolean): void { this.voltage.fill(0); this.current.fill(0); this.spikes.fill(0); this.refractory.fill(0); this.rate.fill(0); this.active.clear(); if (resetTime) { this.timeMs = 0; this.rng = rngFrom(this.seed); Object.assign(this.world, { x: .5, y: .54, heading: -Math.PI / 2 }); } }
+  resetDynamic(resetTime: boolean): void { this.voltage.fill(0); this.current.fill(0); this.spikes.fill(0); this.refractory.fill(0); this.rate.fill(0); this.active.clear(); this.turnBias = this.rawTurnBias = 0; this.swimSpeed = .012; if (resetTime) { this.timeMs = 0; this.rng = rngFrom(this.seed); Object.assign(this.world, { x: .5, y: .54, heading: -Math.PI / 2 }); } }
   reset(): void { this.resetDynamic(true); this.ablated.fill(0); this.clearLearning(); }
   stimulate(kind: Stimulus, intensity: number, duration = 650): void { if (!this.targets[kind]) throw new Error(`Unknown stimulus: ${kind}`); this.active.set(kind, { intensity: clamp(intensity, 0, 1), remaining_ms: clamp(duration, 20, 5000) }); }
   setWorld(changes: Partial<typeof this.world>): void { for (const [key, value] of Object.entries(changes)) { if (!["light_x", "light_y", "light_strength", "gravity_angle"].includes(key) || typeof value !== "number") throw new Error(`Unknown world field: ${key}`); (this.world as unknown as Record<string, number>)[key] = key === "gravity_angle" ? value % (2 * Math.PI) : clamp(value, 0, 1); } }
@@ -183,7 +190,23 @@ export class Simulator {
     if (ant[1] !== undefined) out[ant[1]] += .86 + .42 * Math.max(0, -tilt);
   }
   private mean(ids: number[]): number { return ids.reduce((sum, id) => sum + this.rate[id], 0) / Math.max(1, ids.length); }
-  private advanceWorld(): void { const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), direction = (right - left) / (right + left + .02), dt = this.dt / 1000; this.world.heading = (this.world.heading + direction * 2.4 * dt) % (2 * Math.PI); const speed = .012 + .075 * Math.min(1, (left + right) * 4); this.world.x = (this.world.x + Math.cos(this.world.heading) * speed * dt + 1) % 1; this.world.y = (this.world.y + Math.sin(this.world.heading) * speed * dt + 1) % 1; if (this.world.touch_remaining_ms > 0 && (this.world.touch_remaining_ms -= this.dt) <= 0) Object.assign(this.world, { touch_x: null, touch_y: null, touch_side: null }); }
+  private advanceWorld(): void {
+    const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), dt = this.dt / 1000;
+    this.rawTurnBias = clamp((right - left) / (right + left + .02), -1, 1);
+    // Motor spikes are sparse at 5 ms resolution. A 300 ms exponential readout
+    // approximates short behavioural persistence and prevents a turn from
+    // disappearing from the UI on the very next spike-free frame.
+    const turnAlpha = 1 - Math.exp(-this.dt / 300);
+    this.turnBias += turnAlpha * (this.rawTurnBias - this.turnBias);
+    const motorDrive = Math.min(1, (left + right) * 4);
+    // The small baseline speed is an explicit world-model assumption. It means
+    // score 0 can correctly mean "swimming straight", not "stationary".
+    this.swimSpeed = .012 + .075 * motorDrive;
+    this.world.heading = (this.world.heading + this.turnBias * 2.4 * dt) % (2 * Math.PI);
+    this.world.x = (this.world.x + Math.cos(this.world.heading) * this.swimSpeed * dt + 1) % 1;
+    this.world.y = (this.world.y + Math.sin(this.world.heading) * this.swimSpeed * dt + 1) % 1;
+    if (this.world.touch_remaining_ms > 0 && (this.world.touch_remaining_ms -= this.dt) <= 0) Object.assign(this.world, { touch_x: null, touch_y: null, touch_side: null });
+  }
 
   private applyLearning(distanceBefore: number, distanceAfter: number, previous: Uint8Array, next: Uint8Array): void {
     // Experimental reward-modulated eligibility trace. Ryan et al. provide the
@@ -210,7 +233,7 @@ export class Simulator {
     this.learningMeanChange = totalChange / Math.max(1, this.plasticEdges.length);
   }
 
-  snapshot(): Record<string, unknown> { const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor), direction = clamp((right - left) / (right + left + .02), -1, 1); const spikeIds = [...this.spikes.keys()].filter(i => this.spikes[i]); return { type: "state", time_ms: this.timeMs, spikes: spikeIds, firing_count: spikeIds.length, direction: +direction.toFixed(3), motor: { left: +left.toFixed(3), right: +right.toFixed(3) }, active_stimuli: [...this.active.keys()], ablated: [...this.ablated.keys()].filter(i => this.ablated[i]), sign_rule: this.signRule, sign_rule_label: SIGN_RULES[this.signRule].label, inhibitory_edges: this.inhibitoryEdges, seed: this.seed, gain_profile: this.gainProfile, gain_profile_label: GAIN_PROFILES[this.gainProfile].label, gain_parameters: this.gainParameters, gain_objective: this.gainObjective, learning: { enabled: this.learningEnabled, rule: "reward_modulated_eligibility", task: "Modeled light-approach proxy", plastic_edges: this.plasticEdges.length, modified_edges: this.learnedEdgeCount, mean_abs_change: +this.learningMeanChange.toFixed(5), reward: +this.learningReward.toFixed(5), updates: this.learningUpdates, assumption: "Experimental rule; topology is measured, plasticity and reward are modeled." }, world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(5) : v])) }; }
+  snapshot(): Record<string, unknown> { const left = this.mean(this.leftMotor), right = this.mean(this.rightMotor); const spikeIds = [...this.spikes.keys()].filter(i => this.spikes[i]); return { type: "state", time_ms: this.timeMs, spikes: spikeIds, firing_count: spikeIds.length, direction: +this.turnBias.toFixed(3), movement: { speed: +this.swimSpeed.toFixed(4), motor_drive: +Math.min(1, (left + right) * 4).toFixed(3), raw_laterality: +this.rawTurnBias.toFixed(3), note: "Modeled kinematics; speed and temporal smoothing are not measured animal behaviour." }, motor: { left: +left.toFixed(3), right: +right.toFixed(3) }, active_stimuli: [...this.active.keys()], ablated: [...this.ablated.keys()].filter(i => this.ablated[i]), sign_rule: this.signRule, sign_rule_label: SIGN_RULES[this.signRule].label, inhibitory_edges: this.inhibitoryEdges, seed: this.seed, gain_profile: this.gainProfile, gain_profile_label: GAIN_PROFILES[this.gainProfile].label, gain_parameters: this.gainParameters, gain_objective: this.gainObjective, learning: { enabled: this.learningEnabled, rule: "reward_modulated_eligibility", task: "Modeled light-approach proxy", plastic_edges: this.plasticEdges.length, modified_edges: this.learnedEdgeCount, mean_abs_change: +this.learningMeanChange.toFixed(5), reward: +this.learningReward.toFixed(5), updates: this.learningUpdates, assumption: "Experimental rule; topology is measured, plasticity and reward are modeled." }, world: Object.fromEntries(Object.entries(this.world).map(([k, v]) => [k, typeof v === "number" ? +v.toFixed(5) : v])) }; }
   metadata(): Record<string, unknown> { return { type: "metadata", neurons: this.connectome.neurons, stimulus_targets: Object.fromEntries(Object.entries(this.targets).map(([k, ids]) => [k, ids.map(id => this.connectome.neurons[id].name)])), connections: this.connectome.edges, sign_rules: SIGN_RULES, gain_profiles: GAIN_PROFILES, motor_groups: this.motorGroups, source: { dataset: "Ryan et al. 2016 / Netzschleuder cintestinalis", graph_nodes: this.connectome.fullNodes, graph_edges: this.connectome.fullEdges, simulated_cns_neurons: 177, synapse_note: "Synaptic signs are not fully annotated in the original connectome; all inhibition and learning modes are explicit assumptions.", provenance: { measured: ["Neuron identities and directed edges", "Cumulative presynaptic contact depth", "Explicit L/R suffixes in source labels"], derived: ["Log-scaled LIF connection magnitudes", "Motor-pool laterality score", "Two-hop touch target partition"], heuristic: ["Synaptic signs", "World-to-sensory transduction", "Retinal left/right proxy banks", "Larval movement physics and reward-modulated plasticity"] } } }; }
   tracePath(target: number, stimulus: Stimulus): Record<string, unknown> { const sources = new Set(this.targets[stimulus]), queue = [...sources].map(id => [id] as number[]); let path: number[] = []; while (queue.length) { const candidate = queue.shift()!; const node = candidate.at(-1)!; if (node === target) { path = candidate; break; } if (candidate.length >= 8) continue; for (const edge of [...this.connectome.outgoing[node]].sort((a, b) => b.weight - a.weight)) if (!candidate.includes(edge.target)) queue.push([...candidate, edge.target]); } return { type: "path", stimulus, target, found: !!path.length, nodes: path.map(id => ({ id, name: this.connectome.neurons[id].name })), edges: path.slice(1).map((id, i) => ({ source: path[i], target: id, source_name: this.connectome.neurons[path[i]].name, target_name: this.connectome.neurons[id].name, source_weight: this.connectome.adjacency[id * this.n + path[i]], effective_weight: this.weights[id * this.n + path[i]] })), note: "Topology is measured; stimulus membership, signs, scaling and effective weights may be model-derived or heuristic." }; }
 }
