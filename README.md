@@ -205,6 +205,21 @@ CIONABRAIN_PORT=8080 docker compose up -d --build
 docker compose ps
 ```
 
+### Concurrent viewers
+
+The server is configured for at least 100 simultaneous viewers (250 by
+default). It serializes each state once, skips backlogged clients, terminates
+stalled sockets with WebSocket heartbeat checks, and broadcasts at a
+configurable 8 Hz. Capacity-related environment variables are
+`MAX_VIEWERS`, `BROADCAST_HZ`, and `MAX_BUFFERED_BYTES`.
+
+Run the included 100-client WebSocket check against a deployed instance:
+
+```bash
+npm run load-test
+# or: TARGET_URL=wss://example.org/ws CLIENTS=100 npm run load-test
+```
+
 ## Implementation note
 
 The interface is written in TypeScript. Neural state lives in a Web Worker, so

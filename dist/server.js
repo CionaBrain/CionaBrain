@@ -548,6 +548,10 @@ var LiveCionaRuntime = class {
 // src/server.ts
 var root = join(process.cwd(), "static");
 var port = Number(process.env.PORT || 8765);
+var broadcastHz = Math.max(1, Math.min(20, Number(process.env.BROADCAST_HZ || 8)));
+var maxViewers = Math.max(100, Number(process.env.MAX_VIEWERS || 250));
+var maxBufferedBytes = Math.max(64 * 1024, Number(process.env.MAX_BUFFERED_BYTES || 256 * 1024));
+var slowClientDrops = 0;
 var mime = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".csv": "text/csv; charset=utf-8", ".json": "application/json" };
 var graph = parseConnectome(readFileSync(join(process.cwd(), "data/nodes.csv"), "utf8"), readFileSync(join(process.cwd(), "data/edges.csv"), "utf8"));
 var live = new LiveCionaRuntime(graph);
@@ -555,7 +559,7 @@ var server = createServer(async (request, response) => {
   try {
     if (request.url === "/api/health") {
       response.setHeader("content-type", "application/json");
-      response.end(JSON.stringify({ status: "ok", runtime: "shared-live-ciona", neurons: 177, edges: 2903, viewers: live.viewers, generation: live.generation, age_seconds: +(live.simulator.timeMs / 1e3).toFixed(1) }));
+      response.end(JSON.stringify({ status: "ok", runtime: "shared-live-ciona", neurons: 177, edges: 2903, viewers: live.viewers, max_viewers: maxViewers, broadcast_hz: broadcastHz, slow_client_drops: slowClientDrops, generation: live.generation, age_seconds: +(live.simulator.timeMs / 1e3).toFixed(1) }));
       return;
     }
     const urlPath = request.url === "/" ? "index.html" : (request.url || "/").split("?")[0].replace(/^\/static\//, "");
@@ -569,9 +573,14 @@ var server = createServer(async (request, response) => {
     response.end("Not found");
   }
 });
-var sockets = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+var sockets = new WebSocketServer({ noServer: true, maxPayload: 4096, perMessageDeflate: false });
 server.on("upgrade", (request, socket, head) => {
   if (new URL(request.url || "/", "http://localhost").pathname !== "/ws") {
+    socket.destroy();
+    return;
+  }
+  if (sockets.clients.size >= maxViewers) {
+    socket.write("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\nRetry-After: 10\r\n\r\n");
     socket.destroy();
     return;
   }
@@ -582,13 +591,20 @@ function send(client, message) {
 }
 function broadcast(message) {
   const encoded = JSON.stringify(message);
-  for (const client of sockets.clients) if (client.readyState === WebSocket.OPEN) client.send(encoded);
+  for (const client of sockets.clients) if (client.readyState === WebSocket.OPEN) {
+    if (client.bufferedAmount > maxBufferedBytes * 4) {
+      slowClientDrops++;
+      client.terminate();
+    } else if (client.bufferedAmount <= maxBufferedBytes) client.send(encoded);
+  }
 }
+var alive = /* @__PURE__ */ new WeakSet();
 sockets.on("connection", (client) => {
+  alive.add(client);
   live.viewers = sockets.clients.size;
   let nextCommandAt = 0;
   send(client, live.metadata());
-  broadcast(live.state());
+  send(client, live.state());
   client.on("message", (raw) => {
     try {
       const now = Date.now();
@@ -600,14 +616,38 @@ sockets.on("connection", (client) => {
       send(client, { type: "error", message: error instanceof Error ? error.message : String(error) });
     }
   });
+  client.on("pong", () => alive.add(client));
+  client.on("error", () => client.terminate());
   client.on("close", () => {
     live.viewers = sockets.clients.size;
-    broadcast(live.state());
   });
 });
-var broadcasts = 0;
-setInterval(() => {
+var broadcastBudget = 0;
+var simulationTimer = setInterval(() => {
   live.tick(10);
-  if (++broadcasts % 2 === 0) broadcast(live.state());
+  broadcastBudget += broadcastHz;
+  if (broadcastBudget >= 20) {
+    broadcastBudget -= 20;
+    broadcast(live.state());
+  }
 }, 50);
-server.listen(port, "0.0.0.0", () => console.log(`CionaBrain shared organism listening on :${port}`));
+var heartbeatTimer = setInterval(() => {
+  for (const client of sockets.clients) {
+    if (!alive.has(client)) {
+      client.terminate();
+      continue;
+    }
+    alive.delete(client);
+    client.ping();
+  }
+}, 3e4);
+function shutdown() {
+  clearInterval(simulationTimer);
+  clearInterval(heartbeatTimer);
+  for (const client of sockets.clients) client.close(1001, "Server shutting down");
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5e3).unref();
+}
+process.once("SIGTERM", shutdown);
+process.once("SIGINT", shutdown);
+server.listen({ port, host: "0.0.0.0", backlog: 256 }, () => console.log(`CionaBrain shared organism listening on :${port} \xB7 ${broadcastHz} Hz \xB7 max ${maxViewers} viewers`));

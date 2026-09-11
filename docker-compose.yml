@@ -12,6 +12,13 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8765
+      BROADCAST_HZ: ${BROADCAST_HZ:-8}
+      MAX_VIEWERS: ${MAX_VIEWERS:-250}
+      MAX_BUFFERED_BYTES: ${MAX_BUFFERED_BYTES:-262144}
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 4096
     read_only: true
     tmpfs:
       - /tmp

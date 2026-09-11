@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "check": "tsc --noEmit && node scripts/build-tests.mjs && node dist-tests/core.test.js",
+    "load-test": "node scripts/load-test.mjs",
     "start": "node dist/server.js"
   },
   "devDependencies": {
