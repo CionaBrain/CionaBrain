@@ -572,7 +572,7 @@ function handleMessage(message) {
 }
 
 function connectLocal() {
-  worker = new Worker("/static/dist/simulator.worker.js", { type: "module" });
+  worker = new Worker("/static/dist/simulator.worker.js?v=18", { type: "module" });
   worker.addEventListener("message", (event) => handleMessage(event.data));
   worker.addEventListener("error", (event) => {
     console.error(event.message);

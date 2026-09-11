@@ -568,8 +568,9 @@ var server = createServer(async (request, response) => {
     const urlPath = request.url === "/" ? "index.html" : (request.url || "/").split("?")[0].replace(/^\/static\//, "");
     const file = normalize(join(root, urlPath));
     if (!file.startsWith(root) || !(await stat(file)).isFile()) throw new Error("not found");
-    response.setHeader("content-type", mime[extname(file)] || "application/octet-stream");
-    response.setHeader("cache-control", extname(file) === ".html" ? "no-cache" : "public, max-age=3600");
+    const extension = extname(file);
+    response.setHeader("content-type", mime[extension] || "application/octet-stream");
+    response.setHeader("cache-control", [".html", ".js", ".css"].includes(extension) ? "no-cache" : "public, max-age=3600");
     response.end(await readFile(file));
   } catch {
     response.statusCode = 404;
