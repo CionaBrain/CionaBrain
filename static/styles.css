@@ -490,6 +490,19 @@ main { max-width: 1640px; padding: 26px 30px 40px; }
 .provenance-panel summary b { font-size: 12px; }
 button:disabled { cursor: not-allowed !important; }
 
+/* World and connectome are one continuous live view. There is deliberately no
+   manual view switch: visitors can see movement and neural firing together. */
+.activity-panel > .activity-view { flex: none; }
+.connectome-panel {
+  margin-top: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 17px;
+  background: linear-gradient(180deg, #fbfdfe 0%, #f6fafb 100%);
+  box-shadow: 0 10px 28px rgba(20,57,71,.05);
+}
+.connectome-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.connectome-heading strong { display: block; font-size: 17px; letter-spacing: -.015em; }
+.connectome-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+.connectome-panel .activity-key { padding-top: 14px; }
+
 @media (max-width: 1220px) {
   .simulator-layout { grid-template-columns: 270px minmax(480px, 1fr); }
   .readout-rail { grid-column: 1 / -1; }
@@ -509,4 +522,6 @@ button:disabled { cursor: not-allowed !important; }
   .panel-header { align-items: flex-start; gap: 14px; }
   #larvalWorld { min-height: 360px; height: 360px; }
   .readout-rail { display: block; }
+  .connectome-panel { padding: 14px; }
+  .connectome-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
 }

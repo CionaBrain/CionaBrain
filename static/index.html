@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
-    <link rel="stylesheet" href="/static/styles.css?v=11" />
+    <link rel="stylesheet" href="/static/styles.css?v=12" />
   </head>
   <body>
     <header class="masthead">
@@ -146,15 +146,11 @@
               <h1>Neural activity</h1>
             </div>
             <div class="panel-header-actions">
-              <nav class="view-tabs" data-tab-group="activity" aria-label="Activity view">
-                <button class="active" data-tab-target="activity-world">Larval world</button>
-                <button data-tab-target="activity-connectome">Connectome</button>
-              </nav>
               <div class="clock"><span id="simTime">0.0</span> ms</div>
             </div>
           </header>
 
-          <section class="world-panel activity-view" data-tab-panel="activity-world">
+          <section class="world-panel activity-view">
             <div class="world-heading">
               <div><span class="field-label"><span id="worldRuntimeLabel">SHARED SENSORIMOTOR LOOP</span> · <em class="provenance heuristic">modeled world</em></span><strong>Larval world</strong></div>
               <div class="world-tools" role="group" aria-label="World interaction tool">
@@ -170,7 +166,11 @@
             </div>
           </section>
 
-          <div class="activity-view is-hidden" data-tab-panel="activity-connectome">
+          <section class="connectome-panel activity-view" aria-labelledby="connectomeTitle">
+            <div class="connectome-heading">
+              <div><span class="field-label">ALL 177 CNS NEURONS</span><strong id="connectomeTitle">Connectome activity</strong></div>
+              <p>Live spikes grouped by source laterality</p>
+            </div>
             <div class="activity-key">
               <span><i class="key-dot firing"></i>spike</span>
               <span><i class="key-dot left"></i>left-labelled</span>
@@ -205,7 +205,7 @@
                 <canvas id="rasterPlot" height="124" aria-label="Live spike raster for all neurons"></canvas>
               </div>
             </div>
-          </div>
+          </section>
         </section>
 
         <aside class="readout-rail">
