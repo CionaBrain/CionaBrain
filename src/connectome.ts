@@ -1,5 +1,5 @@
 export interface Edge { source: number; target: number; weight: number }
-export interface Neuron { id: number; source_id: number; name: string; color: string; side: "left" | "right" | "unlabelled"; class: string }
+export interface Neuron { id: number; source_id: number; name: string; color: string; side: "left" | "right" | "unlabelled"; class: string; layout_x: number; layout_y: number }
 export interface Connectome { neurons: Neuron[]; adjacency: Float32Array; edges: Edge[]; outgoing: Edge[][]; touchTargets: number[]; fullNodes: number; fullEdges: number }
 
 function neuronClass(name: string): string {
@@ -15,7 +15,10 @@ function neuronClass(name: string): string {
 export function parseConnectome(nodesText: string, edgesText: string): Connectome {
   const nodeRows = nodesText.trim().split(/\r?\n/).slice(1).map(line => {
     const [id, name, color] = line.split(",");
-    return { id: Number(id), name, color: `#${color.slice(-6)}` };
+    // Netzschleuder includes a deterministic 2-D graph layout in `_pos`.
+    // These coordinates describe the network drawing, not anatomical position.
+    const position = line.match(/array\(\[\s*([^,]+),\s*([^\]]+)/);
+    return { id: Number(id), name, color: `#${color.slice(-6)}`, layout_x: Number(position?.[1] || 0), layout_y: Number(position?.[2] || 0) };
   });
   const rawEdges = edgesText.trim().split(/\r?\n/).slice(1).map(line => {
     const [source, target, depth] = line.split(",");
@@ -25,7 +28,7 @@ export function parseConnectome(nodesText: string, edgesText: string): Connectom
   if (kept.length !== 177) throw new Error(`Expected 177 CNS neurons, found ${kept.length}`);
   const remap = new Map(kept.map((row, index) => [row.id, index]));
   const neurons: Neuron[] = kept.map((row, id) => ({ id, source_id: row.id, name: row.name, color: row.color,
-    side: row.name.endsWith("L") ? "left" : row.name.endsWith("R") ? "right" : "unlabelled", class: neuronClass(row.name) }));
+    side: row.name.endsWith("L") ? "left" : row.name.endsWith("R") ? "right" : "unlabelled", class: neuronClass(row.name), layout_x: row.layout_x, layout_y: row.layout_y }));
   const adjacency = new Float32Array(177 * 177);
   const peripheral = new Float32Array(177);
   for (const edge of rawEdges) {

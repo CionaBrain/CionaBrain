@@ -18,7 +18,8 @@ function neuronClass(name) {
 function parseConnectome(nodesText, edgesText) {
   const nodeRows = nodesText.trim().split(/\r?\n/).slice(1).map((line) => {
     const [id, name, color] = line.split(",");
-    return { id: Number(id), name, color: `#${color.slice(-6)}` };
+    const position = line.match(/array\(\[\s*([^,]+),\s*([^\]]+)/);
+    return { id: Number(id), name, color: `#${color.slice(-6)}`, layout_x: Number(position?.[1] || 0), layout_y: Number(position?.[2] || 0) };
   });
   const rawEdges = edgesText.trim().split(/\r?\n/).slice(1).map((line) => {
     const [source, target, depth] = line.split(",");
@@ -33,7 +34,9 @@ function parseConnectome(nodesText, edgesText) {
     name: row.name,
     color: row.color,
     side: row.name.endsWith("L") ? "left" : row.name.endsWith("R") ? "right" : "unlabelled",
-    class: neuronClass(row.name)
+    class: neuronClass(row.name),
+    layout_x: row.layout_x,
+    layout_y: row.layout_y
   }));
   const adjacency = new Float32Array(177 * 177);
   const peripheral = new Float32Array(177);

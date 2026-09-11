@@ -541,6 +541,18 @@ button:disabled { cursor: not-allowed !important; }
 .connectome-heading strong { display: block; font-size: 17px; letter-spacing: -.015em; }
 .connectome-heading p { margin: 0; color: var(--muted); font-size: 11px; }
 .connectome-panel .activity-key { padding-top: 14px; }
+.connectome-map {
+  margin: 14px 0; overflow: hidden; border: 1px solid #d6e2e6; border-radius: 16px;
+  background: #f7fbfc; box-shadow: 0 7px 22px rgba(20,57,71,.055);
+}
+.connectome-map figcaption { min-height: 54px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid #dce7ea; background: rgba(255,255,255,.94); }
+.connectome-map figcaption strong { display: block; color: var(--ink); font-size: 12px; }
+.connectome-map figcaption span { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+.connectome-map figcaption p { margin: 0; display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 9px; white-space: nowrap; }
+.connectome-map figcaption b { color: var(--ink); font: 700 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.connectome-map figcaption i { width: 3px; height: 3px; border-radius: 50%; background: #a8b5bb; }
+#connectomeMap { display: block; width: 100%; height: 300px; cursor: crosshair; background: #f7fbfc; }
+.connectome-map > small { display: block; padding: 8px 14px; border-top: 1px solid #dce7ea; color: #788990; background: white; font-size: 8px; line-height: 1.4; }
 
 @media (max-width: 1220px) {
   .simulator-layout { grid-template-columns: 270px minmax(480px, 1fr); }
@@ -563,6 +575,8 @@ button:disabled { cursor: not-allowed !important; }
   .readout-rail { display: block; }
   .connectome-panel { padding: 14px; }
   .connectome-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
+  #connectomeMap { height: 250px; }
+  .connectome-map figcaption { align-items: flex-start; flex-direction: column; gap: 7px; }
   .github-link { width: 38px; height: 38px; justify-content: center; padding: 0; }
   .github-link span { display: none; }
 }

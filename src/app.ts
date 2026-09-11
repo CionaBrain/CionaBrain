@@ -12,6 +12,7 @@ const connectionText = document.querySelector("#connectionText");
 const tooltip = document.querySelector("#tooltip");
 const trace = document.querySelector("#activityTrace");
 const raster = document.querySelector("#rasterPlot");
+const connectomeCanvas = document.querySelector("#connectomeMap");
 const worldCanvas = document.querySelector("#larvalWorld");
 
 let worker;
@@ -28,6 +29,8 @@ let worldTool = "light";
 let pathNodeIds = new Set();
 let incoming = new Map();
 let outgoing = new Map();
+let connectomeEdges = [];
+let connectomeHitAreas = [];
 const activityHistory = [];
 const activityTimes = [];
 const rasterFrames = [];
@@ -60,6 +63,8 @@ function setControlScope() {
 }
 
 function indexConnections(connections) {
+  connectomeEdges = connections;
+  document.querySelector("#mapEdgeCount").textContent = connections.length.toLocaleString("en-US");
   incoming = new Map();
   outgoing = new Map();
   connections.forEach((edge) => {
@@ -92,6 +97,7 @@ function buildGrid(items) {
   document.querySelector("#leftCount").textContent = counts.left;
   document.querySelector("#rightCount").textContent = counts.right;
   document.querySelector("#unlabelledCount").textContent = counts.unlabelled;
+  document.querySelector("#mapNeuronCount").textContent = items.length.toLocaleString("en-US");
 }
 
 function selectNeuron(id) {
@@ -141,6 +147,7 @@ function refreshSelectionClasses() {
     dot.classList.toggle("ablated", ablated.has(id));
     dot.classList.toggle("path-node", pathNodeIds.has(id));
   });
+  requestAnimationFrame(drawConnectome);
   if (selectedId === null) return;
   dots[selectedId]?.classList.add("selected");
   (incoming.get(selectedId) || []).forEach((edge) => dots[edge.source]?.classList.add("upstream"));
@@ -165,6 +172,32 @@ function moveTooltip(event) {
   tooltip.style.left = `${event.clientX + 14}px`;
   tooltip.style.top = `${event.clientY + 14}px`;
 }
+
+function connectomePointAt(event) {
+  const bounds = connectomeCanvas.getBoundingClientRect();
+  const x = event.clientX - bounds.left, y = event.clientY - bounds.top;
+  let match = null, bestDistance = 11;
+  connectomeHitAreas.forEach((point) => {
+    const distance = Math.hypot(point.x - x, point.y - y);
+    if (distance < bestDistance) { match = point; bestDistance = distance; }
+  });
+  return match;
+}
+
+connectomeCanvas.addEventListener("mousemove", (event) => {
+  const point = connectomePointAt(event);
+  connectomeCanvas.style.cursor = point ? "pointer" : "crosshair";
+  if (!point) { tooltip.style.display = "none"; return; }
+  const neuron = neurons[point.id];
+  tooltip.innerHTML = `<b>${neuron.name}</b><br>${neuron.class} · ${neuron.side}<br>${(incoming.get(point.id) || []).length} in / ${(outgoing.get(point.id) || []).length} out`;
+  tooltip.style.display = "block";
+  moveTooltip(event);
+});
+connectomeCanvas.addEventListener("mouseleave", () => (tooltip.style.display = "none"));
+connectomeCanvas.addEventListener("click", (event) => {
+  const point = connectomePointAt(event);
+  if (point) selectNeuron(point.id);
+});
 
 function renderState(state) {
   latestState = state;
@@ -378,7 +411,66 @@ function drawRaster() {
 function drawPlots() {
   drawTrace();
   drawRaster();
+  drawConnectome();
   drawWorld();
+}
+
+function drawConnectome() {
+  const { context, width, height } = prepareCanvas(connectomeCanvas);
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#f7fbfc";
+  context.fillRect(0, 0, width, height);
+  if (!neurons.length) return;
+
+  const paddingX = 25, paddingY = 20;
+  const xs = neurons.map((neuron) => neuron.layout_x);
+  const ys = neurons.map((neuron) => neuron.layout_y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeX = Math.max(0.001, maxX - minX), rangeY = Math.max(0.001, maxY - minY);
+  connectomeHitAreas = neurons.map((neuron) => ({
+    id: neuron.id,
+    x: paddingX + ((neuron.layout_x - minX) / rangeX) * (width - paddingX * 2),
+    y: paddingY + ((neuron.layout_y - minY) / rangeY) * (height - paddingY * 2),
+  }));
+
+  // All lines are measured directed contacts. Arrowheads are omitted at this
+  // density; direction remains available when selecting a node.
+  context.strokeStyle = "rgba(67,100,113,.09)";
+  context.lineWidth = 0.65;
+  context.beginPath();
+  connectomeEdges.forEach((edge) => {
+    const source = connectomeHitAreas[edge.source], target = connectomeHitAreas[edge.target];
+    context.moveTo(source.x, source.y); context.lineTo(target.x, target.y);
+  });
+  context.stroke();
+
+  const firing = new Set(latestState?.spikes || []);
+  if (firing.size) {
+    context.strokeStyle = "rgba(226,168,43,.32)"; context.lineWidth = 1;
+    context.beginPath();
+    connectomeEdges.forEach((edge) => {
+      if (!firing.has(edge.source)) return;
+      const source = connectomeHitAreas[edge.source], target = connectomeHitAreas[edge.target];
+      context.moveTo(source.x, source.y); context.lineTo(target.x, target.y);
+    });
+    context.stroke();
+  }
+
+  const ablated = new Set(latestState?.ablated || []);
+  connectomeHitAreas.forEach((point) => {
+    const neuron = neurons[point.id];
+    const isFiring = firing.has(point.id), isSelected = selectedId === point.id;
+    const color = neuron.side === "left" ? "#3b82f6" : neuron.side === "right" ? "#f97316" : "#94a3b8";
+    if (isSelected || pathNodeIds.has(point.id)) {
+      context.beginPath(); context.arc(point.x, point.y, isSelected ? 7 : 5.5, 0, Math.PI * 2);
+      context.fillStyle = isSelected ? "rgba(16,38,50,.12)" : "rgba(168,85,247,.14)"; context.fill();
+    }
+    context.beginPath(); context.arc(point.x, point.y, isFiring ? 3.8 : 2.15, 0, Math.PI * 2);
+    context.fillStyle = ablated.has(point.id) ? "#66747b" : isFiring ? "#e3ad32" : color;
+    context.globalAlpha = ablated.has(point.id) ? 0.35 : isFiring ? 1 : 0.78;
+    context.fill(); context.globalAlpha = 1;
+    if (isFiring) { context.strokeStyle = "rgba(255,255,255,.95)"; context.lineWidth = 1.2; context.stroke(); }
+  });
 }
 
 function drawWorld() {

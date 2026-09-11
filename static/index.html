@@ -6,7 +6,7 @@
     <meta name="description" content="A real-time simulation of the 177-neuron Ciona intestinalis larval CNS" />
     <title>CionaBrain — Larval CNS simulator</title>
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg?v=1" />
-    <link rel="stylesheet" href="/static/styles.css?v=16" />
+    <link rel="stylesheet" href="/static/styles.css?v=17" />
   </head>
   <body>
     <header class="masthead">
@@ -184,6 +184,15 @@
               <span><i class="key-dot right"></i>right-labelled</span>
               <span><i class="key-dot unlabelled"></i>unlabelled</span>
             </div>
+
+            <figure class="connectome-map">
+              <figcaption>
+                <div><strong>Whole-CNS network</strong><span>Every point is one CNS neuron</span></div>
+                <p><b id="mapNeuronCount">177</b> neurons <i></i> <b id="mapEdgeCount">2,562</b> internal connections</p>
+              </figcaption>
+              <canvas id="connectomeMap" height="300" aria-label="Interactive network of all 177 CNS neurons and their internal directed connections"></canvas>
+              <small>Measured connectivity and contact-depth weights · dataset layout coordinates, not anatomical positions</small>
+            </figure>
 
             <div class="laterality-groups" aria-label="Neurons grouped by left-right labels">
               <section id="leftGroup" class="neuron-group side-group left-group">
