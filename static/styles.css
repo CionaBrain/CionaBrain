@@ -563,15 +563,15 @@ button:disabled { cursor: not-allowed !important; }
 .world-backdrop .world-heading, .world-backdrop .world-settings { display: none; }
 .world-backdrop #larvalWorld {
   width: calc(100% + 28px); height: calc(100% + 28px); min-height: 0; margin: -14px;
-  opacity: .72; filter: blur(1.5px) saturate(.78); transform: translateZ(0); cursor: default;
+  opacity: .3; filter: blur(2.5px) saturate(.72); transform: translateZ(0); cursor: default;
 }
 .world-backdrop::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(237,244,246,.1), rgba(237,244,246,.28)), radial-gradient(circle at 50% 35%, transparent 0, rgba(237,244,246,.14) 78%);
+  background: linear-gradient(180deg, rgba(237,244,246,.34), rgba(237,244,246,.62)), radial-gradient(circle at 50% 35%, transparent 0, rgba(237,244,246,.3) 74%);
 }
 main { position: relative; z-index: 1; }
-.control-rail, .activity-panel, .readout-rail { background: rgba(255,255,255,.78); }
-.connectome-panel { background: linear-gradient(180deg, rgba(251,253,254,.84), rgba(246,250,251,.8)); }
+.control-rail, .activity-panel, .readout-rail { background: rgba(255,255,255,.86); }
+.connectome-panel { background: linear-gradient(180deg, rgba(251,253,254,.9), rgba(246,250,251,.88)); }
 
 @media (max-width: 1220px) {
   .simulator-layout { grid-template-columns: 270px minmax(480px, 1fr); }
